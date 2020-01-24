@@ -1277,3 +1277,8 @@ namespace std {
 		lhs.swap(rhs);
 	}
 }
+
+#undef MPD_NOINLINE
+#undef MPD_SSTRING_ONE_TEMPLATE
+#undef MPD_SSTRING_ONE_AND_STDSTRING_TEMPLATE
+#undef MPD_SSTRING_TWO_TEMPLATE
