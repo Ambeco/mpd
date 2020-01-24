@@ -24,12 +24,8 @@ namespace mpd {
 	//std::copy_backward_n is simply missing from the standard library
 	template<class InBidirIt, class Size, class OutBidirIt >
 	OutBidirIt copy_backward_n(InBidirIt src_last, Size count, OutBidirIt dest_last) {
-		if (count > 0) {
+		for (Size i = 0; i < count; ++i)
 			*(--dest_last) = *(--src_last);
-			for (Size i = 1; i < count; ++i) {
-				*(--dest_last) = *(--src_last);
-			}
-		}
 		return dest_last;
 	}
 
@@ -133,10 +129,10 @@ namespace mpd {
 		}
 		static MPD_NOINLINE(std::size_t) _insert(charT* buffer, std::size_t before_size, std::size_t max_len, std::size_t dst_idx, std::size_t src_count, charT src) noexcept(overflow_throws) {
 			src_count = max_length_check(src_count, max_len - dst_idx);
-			std::size_t keep = max_length_check(before_size, max_len - dst_idx - src_count);
-			copy_backward_n(buffer + dst_idx + keep, keep, buffer + dst_idx + src_count + keep);
+			std::size_t keep_end = max_length_check(before_size - dst_idx, max_len - dst_idx - src_count);
+			copy_backward_n(buffer + dst_idx + keep_end, keep_end, buffer + dst_idx + src_count + keep_end);
 			std::fill_n(buffer + dst_idx, src_count, src);
-			return dst_idx + src_count + keep;
+			return dst_idx + src_count + keep_end;
 		}
 		template<class InputIt>
 		static MPD_NOINLINE(std::size_t) _insert(charT* buffer, std::size_t before_size, std::size_t max_len, std::size_t dst_idx, InputIt src_first, InputIt src_last, std::forward_iterator_tag) noexcept(overflow_throws) {
@@ -183,35 +179,36 @@ namespace mpd {
 			std::size_t new_size = its.second - buffer;
 			return new_size;
 		}
-		static MPD_NOINLINE(std::size_t) _replace(charT* buffer, std::size_t before_size, std::size_t max_len, std::size_t dst_idx, std::size_t rem_count, const charT* src_first, std::size_t ins_count) noexcept(overflow_throws) {
+		template<class InputIt>
+		static MPD_NOINLINE(std::size_t) _replace(charT* buffer, std::size_t before_size, std::size_t max_len, std::size_t dst_idx, std::size_t rem_count, InputIt src_first, std::size_t ins_count) noexcept(overflow_throws) {
 			dst_idx = index_range_check(dst_idx, before_size);
 			rem_count = index_range_check(rem_count, before_size - dst_idx);
 			ins_count = max_length_check(ins_count, max_len - dst_idx);
-			std::size_t keep_end = (before_size - dst_idx - ins_count);
-			copy_backward_n(buffer + dst_idx, keep_end, buffer + before_size + ins_count - rem_count);
+			std::size_t keep_end = max_length_check(before_size - dst_idx, max_len - dst_idx - ins_count);
+			std::size_t new_size = dst_idx + ins_count + keep_end;
+			copy_backward_n(buffer + dst_idx, keep_end, buffer + new_size);
 			std::copy_n(src_first, ins_count, buffer + dst_idx);
-			return before_size + ins_count - rem_count;
+			return new_size;
 		}
 		template<class InputIt>
-		static std::size_t _replace(charT* buffer, std::size_t before_size, std::size_t max_len, const charT* dst_first, const charT* dst_last, InputIt src_first, InputIt src_last, std::forward_iterator_tag) noexcept(overflow_throws)
+		static std::size_t _replace(charT* buffer, std::size_t before_size, std::size_t max_len, std::size_t dst_idx, std::size_t rem_count, InputIt src_first, InputIt src_last, std::forward_iterator_tag) noexcept(overflow_throws)
 		{
-			std::size_t dst_idx = index_range_check(dst_first - buffer, max_len);
+			dst_idx = index_range_check(dst_idx, max_len);
 			std::size_t src_count = distance_up_to_n(src_first, src_last, before_size - dst_idx + 1);
-			return _replace(dst_idx, dst_last - dst_first, src_first, src_count);
+			return _replace(buffer, before_size, max_len, dst_idx, rem_count, src_first, src_count);
 		}
 		template<class InputIt>
-		static MPD_NOINLINE(std::size_t) _replace(charT* buffer, std::size_t before_size, std::size_t max_len, const charT* dst_first, const charT* dst_last, InputIt src_first, InputIt src_last, std::output_iterator_tag) noexcept(overflow_throws)
+		static MPD_NOINLINE(std::size_t) _replace(charT* buffer, std::size_t before_size, std::size_t max_len, std::size_t dst_idx, std::size_t rem_count, InputIt src_first, InputIt src_last, std::output_iterator_tag) noexcept(overflow_throws)
 		{
-			std::size_t last_idx = index_range_check(dst_last - buffer, max_len);
-			std::size_t dst_idx = index_range_check(dst_first - buffer, last_idx);
-			std::size_t rem_count = last_idx - dst_idx;
-			std::size_t end_count = before_size - last_idx;
+			dst_idx = index_range_check(dst_idx, max_len);
+			rem_count = index_range_check(rem_count, max_len- dst_idx);
+			std::size_t end_count = before_size - dst_idx - rem_count;
 			//reverse the src_last part so we keep the src_first bytes when truncating :(
 			std::reverse(buffer + dst_idx, buffer + max_len);
-			auto its = copy_up_to_n(src_first, src_last, max_len - dst_idx);
+			auto its = copy_up_to_n(src_first, src_last, max_len - dst_idx, buffer + dst_idx);
 			std::size_t post_ins_index = its.second - buffer;
 			std::reverse(its.second, buffer + max_len);
-			if (its.first != src_last) max_length_check(max_len + 1);
+			if (its.first != src_last) max_length_check(max_len + 1, max_len);
 			end_count = max_length_check(end_count, max_len - post_ins_index);
 			return post_ins_index + end_count;
 		}
@@ -676,14 +673,14 @@ namespace mpd {
 		}
 #endif
 	private:
-		template<class InputIt>
-		small_basic_string& _replace(const_iterator rem_first, const_iterator rem_last, InputIt src_first, std::size_t ins_count) noexcept(overflow_throws)
+		using small_basic_string_helper<charT, overflow_behavior>::_replace;
+		small_basic_string& _replace(const_iterator rem_first, const_iterator rem_last, const charT* src_first, std::size_t ins_count) noexcept(overflow_throws)
 		{
-			set_size(_replace(data(), size(), max_len, rem_first - cbegin(), rem_last - rem_first, src_first, ins_count, typename std::iterator_traits<InputIt>::iterator_category{})); return *this;
+			set_size(this->_replace(data(), size(), max_len, rem_first - cbegin(), rem_last - rem_first, src_first, ins_count)); return *this;
 		}
 		small_basic_string& _replace(std::size_t dst_idx, std::size_t rem_count, const charT* src_first, std::size_t ins_count) noexcept(overflow_throws)
 		{
-			set_size(_replace(data(), size(), max_len, dst_idx, rem_count, src_first, ins_count)); return *this;
+			set_size(this->_replace(data(), size(), max_len, dst_idx, rem_count, src_first, ins_count)); return *this;
 		}
 	public:
 		template<std::size_t other_max, overflow_behavior_t other_overflow>
@@ -706,7 +703,7 @@ namespace mpd {
 		template<class InputIt>
 		small_basic_string& replace(const_iterator dst_first, const_iterator dst_last, InputIt src_first, InputIt src_last) noexcept(overflow_throws)
 		{
-			return _replace(dst_first, dst_last, src_first, src_last, typename std::iterator_traits<InputIt>::iterator_category{});
+			_replace(data(), size(), max_len, dst_first-cbegin(), dst_last - dst_first, src_first, src_last, typename std::iterator_traits<InputIt>::iterator_category{}); return *this;
 		}
 		small_basic_string& replace(std::size_t dst_idx, std::size_t rem_count, const charT* src, std::size_t src_count) noexcept(overflow_throws)
 		{
@@ -725,17 +722,17 @@ namespace mpd {
 			std::size_t dst_idx = max_length_check(rem_first - begin());
 			return _replace(dst_idx, rem_last - rem_first, src, strnlen_s_algorithm(src, max_len - dst_idx + 1));
 		}
-		small_basic_string& replace(std::size_t dst_idx, std::size_t rem_count, charT src) noexcept(overflow_throws)
+		small_basic_string& replace(std::size_t dst_idx, std::size_t rem_count, const charT src) noexcept(overflow_throws)
 		{
 			return _replace(dst_idx, rem_count, &src, 1);
 		}
-		small_basic_string& replace(const_iterator rem_first, const_iterator rem_last, charT src) noexcept(overflow_throws)
+		small_basic_string& replace(const_iterator rem_first, const_iterator rem_last, const charT src) noexcept(overflow_throws)
 		{
-			return _replace(rem_first, rem_last, src, &src, 1);
+			return _replace(rem_first, rem_last, &src, 1);
 		}
 		small_basic_string& replace(const_iterator rem_first, const_iterator rem_last, std::initializer_list<charT> src) noexcept(overflow_throws)
 		{
-			return _replace(rem_first, rem_last, src.data(), src.size());
+			return replace(rem_first, rem_last, src.begin(), src.end());
 		}
 
 #if _HAS_CXX17
@@ -792,7 +789,7 @@ namespace mpd {
 			auto self_it = buffer.data();
 			auto other_it = other.buffer.data();
 			using std::swap;
-			while (self_it != buffer.end())
+			while (self_it != buffer.data() + max_len)
 				swap(*self_it++, *other_it++);
 		}
 

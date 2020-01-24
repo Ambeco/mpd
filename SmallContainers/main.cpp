@@ -135,11 +135,26 @@ int main() {
 	test_mutation(L"abcdA", v.append(c_out_it{ 'A' }, c_out_it{ 'Z' }));
 	test_mutation(L"abcdx", v.append(init_list));
 	test_mutation(L"abcdg", v.append(std_string, 1, 2));
-
 	test_mutation(L"abcdr", v += large_lvalue);
 	test_mutation(L"abcda", v += L'a');
 	test_mutation(L"abcd1", v += L"123");
 	test_mutation(L"abcdx", v += init_list);
 	test_mutation(L"abcdf", v += std_string);
+	test_mutation(L"arstu", v.replace(1, 2, large_lvalue));
+	test_mutation(L"arstu", v.replace(v.begin()+1, v.begin()+2, large_lvalue));
+	test_mutation(L"astcd", v.replace(1, 1, large_lvalue, 1, 2));
+	test_mutation(L"afghi", v.replace(v.begin() + 1, v.begin() + 2, std_string.begin(), std_string.end()));
+	test_mutation(L"aABCD", v.replace(v.begin() + 1, v.begin() + 2, c_out_it{ 'A' }, c_out_it{ 'Z' }));
+	test_mutation(L"aAcd", v.replace(v.begin() + 1, v.begin() + 2, c_out_it{ 'A' }, c_out_it{ 'B' }));
+	test_mutation(L"a12cd", v.replace(1, 1, L"12", 2));
+	test_mutation(L"a12cd", v.replace(v.begin() + 1, v.begin() + 2, L"12", 2));
+	test_mutation(L"a12cd", v.replace(1, 1, L"12"));
+	test_mutation(L"aad", v.replace(1, 2, 'a'));
+	test_mutation(L"aad", v.replace(v.begin()+1, v.begin()+3, 'a'));
+	test_mutation(L"axyz,", v.replace(v.begin() + 1, v.begin() + 3, init_list));
+	test_mutation(L"afghi", v.replace(1, 1, std_string, 1, 2));
+	test_mutation(L"ab", v.resize(2));
+	test_mutation(L"abcd1", v.resize(6, '1'));
+	test_mutation(L"lmnop", { auto o = small_lvalue; v.swap(o); });
 	return 0;
 }
