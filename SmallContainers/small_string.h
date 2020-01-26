@@ -148,7 +148,7 @@ namespace mpd {
 		static MPD_NOINLINE(std::size_t) _insert(charT* buffer, std::size_t before_size, std::size_t max_len, std::size_t dst_idx, InputIt src_first, InputIt src_last, std::output_iterator_tag) noexcept(overflow_throws) {
 			dst_idx = index_range_check(dst_idx, before_size);
 			//reverse the src_last part so we keep the src_first bytes when truncating :(
-			std::reverse(buffer + dst_idx, buffer+max_len);
+			std::reverse(buffer + dst_idx, buffer + max_len);
 			auto its = copy_up_to_n(src_first, src_last, max_len - dst_idx, buffer + dst_idx);
 			if (its.first != src_last) max_length_check(max_len + 1, max_len);
 			std::size_t ins_end_idx = its.second - buffer;
@@ -174,7 +174,7 @@ namespace mpd {
 		}
 		template<class InputIt>
 		static MPD_NOINLINE(std::size_t) _append(charT* buffer, std::size_t before_size, std::size_t max_len, InputIt src_first, InputIt src_last, std::output_iterator_tag) noexcept(overflow_throws) {
-			auto its = copy_up_to_n(src_first, src_last, max_len- before_size, buffer + before_size);
+			auto its = copy_up_to_n(src_first, src_last, max_len - before_size, buffer + before_size);
 			if (its.first != src_last) max_length_check(max_len + 1, max_len);
 			std::size_t new_size = its.second - buffer;
 			return new_size;
@@ -184,9 +184,9 @@ namespace mpd {
 			dst_idx = index_range_check(dst_idx, before_size);
 			rem_count = index_range_check(rem_count, before_size - dst_idx);
 			ins_count = max_length_check(ins_count, max_len - dst_idx);
-			std::size_t keep_end = max_length_check(before_size - dst_idx, max_len - dst_idx - ins_count);
+			std::size_t keep_end = max_length_check(before_size - dst_idx - rem_count, max_len - dst_idx - ins_count);
 			std::size_t new_size = dst_idx + ins_count + keep_end;
-			copy_backward_n(buffer + dst_idx, keep_end, buffer + new_size);
+			copy_backward_n(buffer + dst_idx + rem_count + keep_end, keep_end, buffer + new_size);
 			std::copy_n(src_first, ins_count, buffer + dst_idx);
 			return new_size;
 		}
@@ -201,15 +201,15 @@ namespace mpd {
 		static MPD_NOINLINE(std::size_t) _replace(charT* buffer, std::size_t before_size, std::size_t max_len, std::size_t dst_idx, std::size_t rem_count, InputIt src_first, InputIt src_last, std::output_iterator_tag) noexcept(overflow_throws)
 		{
 			dst_idx = index_range_check(dst_idx, max_len);
-			rem_count = index_range_check(rem_count, max_len- dst_idx);
-			std::size_t end_count = before_size - dst_idx - rem_count;
+			rem_count = index_range_check(rem_count, max_len - dst_idx);
+			std::size_t max_end_count = before_size - dst_idx - rem_count;
 			//reverse the src_last part so we keep the src_first bytes when truncating :(
-			std::reverse(buffer + dst_idx, buffer + max_len);
+			std::reverse(buffer + dst_idx + rem_count, buffer + max_len);
 			auto its = copy_up_to_n(src_first, src_last, max_len - dst_idx, buffer + dst_idx);
 			std::size_t post_ins_index = its.second - buffer;
 			std::reverse(its.second, buffer + max_len);
 			if (its.first != src_last) max_length_check(max_len + 1, max_len);
-			end_count = max_length_check(end_count, max_len - post_ins_index);
+			std::size_t end_count = max_length_check(max_end_count, max_len - post_ins_index);
 			return post_ins_index + end_count;
 		}
 		static MPD_NOINLINE(int) _compare(const charT* buffer, std::size_t before_size, std::size_t self_idx, std::size_t self_count, const charT* other, std::size_t other_count) noexcept(overflow_throws) {
@@ -285,13 +285,25 @@ namespace mpd {
 			return std::remove_if(buffer, buffer + before_size, std::forward<Pred>(predicate));
 		}
 	};
-	template<class charT, std::size_t max_len, overflow_behavior_t overflow_behavior=overflow_behavior_t::exception>
+	template<class charT, std::size_t max_len, overflow_behavior_t overflow_behavior = overflow_behavior_t::exception>
 	class small_basic_string : private small_basic_string_helper<charT, overflow_behavior> {
 		static_assert(max_len < CHAR_MAX, "small_string requires a length of less than CHAR_MAX");
 		using buffer_t = std::array<charT, max_len + 1>;
 		static const bool overflow_throws = overflow_behavior != overflow_behavior_t::exception;
 
+#ifdef MPD_SSTRING_OVERRRUN_CHECKS
+		volatile charT before_buffer_checker = (charT)0x66;
+#endif
 		buffer_t buffer;
+#ifdef MPD_SSTRING_OVERRRUN_CHECKS
+		volatile charT after_buffer_checker = (charT)0x66;
+		void check_overruns() {
+			assert(before_buffer_checker == (charT)0x66);
+			assert(after_buffer_checker == (charT)0x66);
+		}
+#else
+		inline void check_overruns() { }
+#endif
 
 		void set_size(std::size_t len) { assert(len <= max_len);  buffer[len] = charT{}; buffer[max_len] = (charT)(max_len - len); }
 
@@ -321,7 +333,7 @@ namespace mpd {
 			set_size(0);
 		}
 		small_basic_string(std::size_t src_count, charT src) noexcept(overflow_throws) {
-			set_size(0); 
+			set_size(0);
 			assign(src_count, src);
 		}
 		template<std::size_t other_max, overflow_behavior_t other_overflow>
@@ -451,8 +463,8 @@ namespace mpd {
 		{
 			src_idx = index_range_check(src_idx, src.size());
 			src_count = (src_count > src.size() - src_idx ? src.size() - src_idx : src_count);
-			 return assign(src.data() + src_idx, src.data() + src_idx + src_count);
-		}
+			return assign(src.data() + src_idx, src.data() + src_idx + src_count);
+	}
 #endif
 		allocator_type get_allocator() const noexcept { return {}; }
 		reference at(std::size_t src_idx) { return buffer.at(index_range_check(src_idx, size())); }
@@ -559,9 +571,9 @@ namespace mpd {
 		{
 			src_idx = index_range_check(src_idx, src.size());
 			src_count = (src_count > src.size() - src_idx ? src.size() - src_idx : src_count);
-			insert(cbegin()+dst_idx, src.data() + src_idx, src.data() + src_idx + src_count);
+			insert(cbegin() + dst_idx, src.data() + src_idx, src.data() + src_idx + src_count);
 			return *this;
-		}
+}
 #endif
 
 		small_basic_string& erase() noexcept {
@@ -674,10 +686,6 @@ namespace mpd {
 #endif
 	private:
 		using small_basic_string_helper<charT, overflow_behavior>::_replace;
-		small_basic_string& _replace(const_iterator rem_first, const_iterator rem_last, const charT* src_first, std::size_t ins_count) noexcept(overflow_throws)
-		{
-			set_size(this->_replace(data(), size(), max_len, rem_first - cbegin(), rem_last - rem_first, src_first, ins_count)); return *this;
-		}
 		small_basic_string& _replace(std::size_t dst_idx, std::size_t rem_count, const charT* src_first, std::size_t ins_count) noexcept(overflow_throws)
 		{
 			set_size(this->_replace(data(), size(), max_len, dst_idx, rem_count, src_first, ins_count)); return *this;
@@ -691,7 +699,7 @@ namespace mpd {
 		template<std::size_t other_max, overflow_behavior_t other_overflow>
 		small_basic_string& replace(const_iterator rem_first, const_iterator rem_last, const small_basic_string<charT, other_max, other_overflow>& src) noexcept(overflow_throws)
 		{
-			return _replace(rem_first, rem_last, src.data(), src.size());
+			return _replace(rem_first - cbegin(), rem_last - rem_first, src.data(), src.size());
 		}
 		template<std::size_t other_max, overflow_behavior_t other_overflow>
 		small_basic_string& replace(std::size_t dst_idx, std::size_t rem_count, const small_basic_string<charT, other_max, other_overflow>& src, std::size_t src_idx, std::size_t src_count = npos) noexcept(overflow_throws)
@@ -701,9 +709,9 @@ namespace mpd {
 			return _replace(dst_idx, rem_count, src.data() + src_idx, src_count);
 		}
 		template<class InputIt>
-		small_basic_string& replace(const_iterator dst_first, const_iterator dst_last, InputIt src_first, InputIt src_last) noexcept(overflow_throws)
+		small_basic_string& replace(const_iterator rem_first, const_iterator rem_last, InputIt src_first, InputIt src_last) noexcept(overflow_throws)
 		{
-			_replace(data(), size(), max_len, dst_first-cbegin(), dst_last - dst_first, src_first, src_last, typename std::iterator_traits<InputIt>::iterator_category{}); return *this;
+			set_size(_replace(data(), size(), max_len, rem_first - cbegin(), rem_last - rem_first, src_first, src_last, typename std::iterator_traits<InputIt>::iterator_category{})); return *this;
 		}
 		small_basic_string& replace(std::size_t dst_idx, std::size_t rem_count, const charT* src, std::size_t src_count) noexcept(overflow_throws)
 		{
@@ -711,7 +719,7 @@ namespace mpd {
 		}
 		small_basic_string& replace(const_iterator rem_first, const_iterator rem_last, const charT* src, std::size_t src_count) noexcept(overflow_throws)
 		{
-			return _replace(rem_first, rem_last, src, src_count);
+			return _replace(rem_first - cbegin(), rem_last - rem_first, src, src_count);
 		}
 		small_basic_string& replace(std::size_t dst_idx, std::size_t rem_count, const charT* src) noexcept(overflow_throws)
 		{
@@ -728,7 +736,7 @@ namespace mpd {
 		}
 		small_basic_string& replace(const_iterator rem_first, const_iterator rem_last, const charT src) noexcept(overflow_throws)
 		{
-			return _replace(rem_first, rem_last, &src, 1);
+			return _replace(rem_first - cbegin(), rem_last - rem_first, &src, 1);
 		}
 		small_basic_string& replace(const_iterator rem_first, const_iterator rem_last, std::initializer_list<charT> src) noexcept(overflow_throws)
 		{
@@ -786,17 +794,13 @@ namespace mpd {
 				set_size(src_count);
 		}
 		void swap(small_basic_string& other) noexcept {
-			auto self_it = buffer.data();
-			auto other_it = other.buffer.data();
-			using std::swap;
-			while (self_it != buffer.data() + max_len)
-				swap(*self_it++, *other_it++);
+			buffer.swap(other.buffer);
 		}
 
 		small_basic_string substr(std::size_t src_idx = 0, std::size_t count = npos) const noexcept { return small_basic_string(*this, src_idx, count); }
 		//This isn't in std::basic_string, but makes sense as an optimization for small_basic_string.
 		template<std::size_t count>
-		small_basic_string<charT, count + 1, overflow_behavior> substr(std::size_t src_idx, std::integral_constant < std::size_t, count> = {}) const noexcept 
+		small_basic_string<charT, count + 1, overflow_behavior> substr(std::size_t src_idx, std::integral_constant < std::size_t, count> = {}) const noexcept
 		{
 			return { *this, src_idx, count };
 		}
@@ -1075,26 +1079,26 @@ namespace mpd {
 			return _find_last_not_of(data(), size(), other.c_str(), self_idx, other.size());
 		}
 #endif
-	};
+};
 #define MPD_SSTRING_ONE_TEMPLATE template<class charT, std::size_t max_len, mpd::overflow_behavior_t behavior>
 #define MPD_SSTRING_ONE_AND_STDSTRING_TEMPLATE template<class charT, std::size_t max_len, mpd::overflow_behavior_t behavior, class alloc>
 #define MPD_SSTRING_TWO_TEMPLATE template<class charT, std::size_t max_len, std::size_t other_len, mpd::overflow_behavior_t behavior, mpd::overflow_behavior_t other_behavior>
 	//operator+
 	MPD_SSTRING_TWO_TEMPLATE
-	small_basic_string<charT, max_len + other_len, behavior> operator+(const small_basic_string<charT, max_len, behavior>& lhs, const small_basic_string<charT, other_len, other_behavior>& rhs) noexcept {
+		small_basic_string<charT, max_len + other_len, behavior> operator+(const small_basic_string<charT, max_len, behavior>& lhs, const small_basic_string<charT, other_len, other_behavior>& rhs) noexcept {
 		return small_basic_string<charT, max_len + other_len, behavior>(lhs).append(rhs);
 	}
 	MPD_SSTRING_TWO_TEMPLATE
-	small_basic_string<charT, max_len, behavior> operator+(const small_basic_string<charT, max_len, behavior>& lhs, const charT* rhs) {
-		return small_basic_string<charT, max_len, behavior> (lhs).append(rhs);
+		small_basic_string<charT, max_len, behavior> operator+(const small_basic_string<charT, max_len, behavior>& lhs, const charT* rhs) {
+		return small_basic_string<charT, max_len, behavior>(lhs).append(rhs);
 	}
 	MPD_SSTRING_TWO_TEMPLATE
 		small_basic_string<charT, max_len, behavior> operator+(const charT* lhs, const small_basic_string<charT, max_len, behavior>& rhs) {
 		return small_basic_string<charT, max_len, behavior>(lhs).append(rhs);
 	}
 	MPD_SSTRING_TWO_TEMPLATE
-		small_basic_string<charT, max_len+1, behavior> operator+(const small_basic_string<charT, max_len, behavior>& lhs, charT rhs) {
-		return small_basic_string<charT, max_len+1, behavior>(lhs).append(rhs);
+		small_basic_string<charT, max_len + 1, behavior> operator+(const small_basic_string<charT, max_len, behavior>& lhs, charT rhs) {
+		return small_basic_string<charT, max_len + 1, behavior>(lhs).append(rhs);
 	}
 	MPD_SSTRING_TWO_TEMPLATE
 		small_basic_string<charT, max_len + 1, behavior> operator+(charT lhs, const small_basic_string<charT, max_len, behavior>& rhs) {
@@ -1110,12 +1114,12 @@ namespace mpd {
 	}
 	//operators (short_string)
 	MPD_SSTRING_TWO_TEMPLATE
-	bool operator==(const small_basic_string<charT, max_len, behavior>& lhs, const small_basic_string<charT, other_len, other_behavior>& rhs) noexcept {
-		return lhs.compare(rhs)==0;
+		bool operator==(const small_basic_string<charT, max_len, behavior>& lhs, const small_basic_string<charT, other_len, other_behavior>& rhs) noexcept {
+		return lhs.compare(rhs) == 0;
 	}
 	MPD_SSTRING_TWO_TEMPLATE
 		bool operator!=(const small_basic_string<charT, max_len, behavior>& lhs, const small_basic_string<charT, other_len, other_behavior>& rhs) noexcept {
-		return lhs.compare(rhs)!=0;
+		return lhs.compare(rhs) != 0;
 	}
 	MPD_SSTRING_TWO_TEMPLATE
 		bool operator<(const small_basic_string<charT, max_len, behavior>& lhs, const small_basic_string<charT, other_len, other_behavior>& rhs) noexcept {
@@ -1184,11 +1188,11 @@ namespace mpd {
 	}
 	//operators (std::string)
 	MPD_SSTRING_ONE_AND_STDSTRING_TEMPLATE
-		bool operator==(const small_basic_string<charT, max_len, behavior>& lhs, const std::basic_string<charT, std::char_traits<charT>,alloc>& rhs) noexcept {
+		bool operator==(const small_basic_string<charT, max_len, behavior>& lhs, const std::basic_string<charT, std::char_traits<charT>, alloc>& rhs) noexcept {
 		return lhs.compare(rhs) == 0;
 	}
 	MPD_SSTRING_ONE_AND_STDSTRING_TEMPLATE
-	bool operator==(const std::basic_string<charT, std::char_traits<charT>, alloc>& lhs, const small_basic_string<charT, max_len, behavior>& rhs) noexcept {
+		bool operator==(const std::basic_string<charT, std::char_traits<charT>, alloc>& lhs, const small_basic_string<charT, max_len, behavior>& rhs) noexcept {
 		return lhs.compare(0, lhs.size(), rhs.data(), rhs.size()) == 0;
 	}
 	MPD_SSTRING_ONE_AND_STDSTRING_TEMPLATE
@@ -1234,7 +1238,7 @@ namespace mpd {
 	template<class charT, std::size_t max_len, overflow_behavior_t behavior, class U>
 	void erase(small_basic_string<charT, max_len, behavior>& str, const U& value) noexcept {
 		const charT* end = small_basic_string_helper<charT, behavior>::remove(str.data(), str.size(), value);
-		str.resize(end-str.data());
+		str.resize(end - str.data());
 	}
 	template<class charT, std::size_t max_len, overflow_behavior_t behavior, class Pred>
 	void erase(small_basic_string<charT, max_len, behavior>& str, Pred&& predicate) {
@@ -1242,18 +1246,18 @@ namespace mpd {
 		str.resize(end - str.data());
 	}
 	MPD_SSTRING_ONE_TEMPLATE
-	std::basic_ostream<charT, std::char_traits<charT>>& operator<<(std::basic_ostream<charT, std::char_traits<charT>>& out, const small_basic_string<charT, max_len, behavior>& str) {
+		std::basic_ostream<charT, std::char_traits<charT>>& operator<<(std::basic_ostream<charT, std::char_traits<charT>>& out, const small_basic_string<charT, max_len, behavior>& str) {
 		return out << str.data();
 	}
-//	MPD_SSTRING_ONE_TEMPLATE
-//	std::basic_istream<charT, std::char_traits<charT>>& operator>>(std::basic_istream<charT, std::char_traits<charT>>& in, const small_basic_string<charT, max_len, behavior>& str) {
-//		return ? ;
-//	}
+	//	MPD_SSTRING_ONE_TEMPLATE
+	//	std::basic_istream<charT, std::char_traits<charT>>& operator>>(std::basic_istream<charT, std::char_traits<charT>>& in, const small_basic_string<charT, max_len, behavior>& str) {
+	//		return ? ;
+	//	}
 
-	//getline
-	//stoi, stol, stoll, stoul, stoull, stof, stod, stold, to_short_string, to_short_wstring
-	//operator""ss
-	//hash<short_string>, hash<short_wstring>
+		//getline
+		//stoi, stol, stoll, stoul, stoull, stof, stod, stold, to_short_string, to_short_wstring
+		//operator""ss
+		//hash<short_string>, hash<short_wstring>
 
 	template<unsigned char max_len>
 	using small_string = small_basic_string<char, max_len, overflow_behavior_t::exception>;
@@ -1270,7 +1274,7 @@ namespace mpd {
 }
 namespace std {
 	MPD_SSTRING_ONE_TEMPLATE
-	void swap(mpd::small_basic_string<charT, max_len, behavior>& lhs, mpd::small_basic_string<charT, max_len, behavior>& rhs) noexcept {
+		void swap(mpd::small_basic_string<charT, max_len, behavior>& lhs, mpd::small_basic_string<charT, max_len, behavior>& rhs) noexcept {
 		lhs.swap(rhs);
 	}
 }

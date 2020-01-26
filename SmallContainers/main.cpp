@@ -1,3 +1,4 @@
+#define MPD_SSTRING_OVERRRUN_CHECKS
 #include "small_string.h"
 #include <iostream>
 #include <utility>
@@ -152,9 +153,9 @@ int main() {
 	test_mutation(L"aad", v.replace(1, 2, 'a'));
 	test_mutation(L"aad", v.replace(v.begin()+1, v.begin()+3, 'a'));
 	test_mutation(L"axyz,", v.replace(v.begin() + 1, v.begin() + 3, init_list));
-	test_mutation(L"afghi", v.replace(1, 1, std_string, 1, 2));
+	test_mutation(L"aghcd", v.replace(1, 1, std_string, 1, 2));
 	test_mutation(L"ab", v.resize(2));
 	test_mutation(L"abcd1", v.resize(6, '1'));
-	test_mutation(L"lmnop", { auto o = small_lvalue; v.swap(o); });
+	test_mutation(L"lmnop", { auto o{small_lvalue}; v.swap(o); });
 	return 0;
 }
