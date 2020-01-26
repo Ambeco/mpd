@@ -182,5 +182,15 @@ int main() {
 	assert(small_lvalue.compare(1, 2, L"moo", 2) < 0);
 	assert(small_lvalue.compare(std_string) > 0);
 	assert(small_lvalue.compare(1, 2, std_string, 1, 2) > 0);
+	assert(small_lvalue.find(large_lvalue) == test_string_t::npos);
+	assert(small_lvalue.find(large_lvalue, 1) == test_string_t::npos);
+	assert(small_lvalue.find(L"nop", 1, 3) == 2);
+	assert(small_lvalue.find(L"n", 1) == 2);
+	assert(small_lvalue.find(L"n") == 2);
+	assert(small_lvalue.find(L'n') == 2);
+	assert(small_lvalue.find(L'n', 1) == 2);
+	assert(small_lvalue.find(std_string) == test_string_t::npos);
+	assert(small_lvalue.find(std_string, 1) == test_string_t::npos);
+	assert(test_string_t(L"abcabc").find('b', 3) == 4);
 	return 0;
 }
