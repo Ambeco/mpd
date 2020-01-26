@@ -1307,7 +1307,6 @@ namespace mpd {
 		return in;
 	}
 
-	//getline
 	//stoi, stol, stoll, stoul, stoull, stof, stod, stold, to_short_string, to_short_wstring
 	//operator""ss
 	//hash<short_string>, hash<short_wstring>
@@ -1324,6 +1323,54 @@ namespace mpd {
 	template<unsigned char max_len>
 	using small_u32string = small_basic_string<std::char32_t, max_len, overflow_behavior_t::exception>;
 #endif
+	template<std::size_t max_len, mpd::overflow_behavior_t behavior>
+	int stoi(const small_basic_string<char, max_len, behavior>& str, std::size_t* pos = 0, int base = 10) 
+	{
+		char* ptr = 0;
+		int ret = (int)std::strtol(str.data(), &ptr, base);
+		if (pos) *pos = ptr - str.data();
+		return ret;
+	}
+	template<std::size_t max_len, mpd::overflow_behavior_t behavior>
+	int stoi(const small_basic_string<wchar_t, max_len, behavior>& str, std::size_t* pos = 0, int base = 10)
+	{
+		wchar_t* ptr=0;
+		int ret = (int)std::wcstol(str.data(), &ptr, base);
+		if (pos) *pos = ptr - str.data();
+		return ret;
+	}
+	template<std::size_t max_len, mpd::overflow_behavior_t behavior>
+	long stol(const small_basic_string<char, max_len, behavior>& str, std::size_t* pos = 0, int base = 10)
+	{
+		char* ptr = 0;
+		long ret = std::strtol(str.data(), &ptr, base);
+		if (pos) *pos = ptr - str.data();
+		return ret;
+	}
+	template<std::size_t max_len, mpd::overflow_behavior_t behavior>
+	long stol(const small_basic_string<wchar_t, max_len, behavior>& str, std::size_t* pos = 0, int base = 10)
+	{
+		wchar_t* ptr = 0;
+		long ret = std::wcstol(str.data(), &ptr, base);
+		if (pos) *pos = ptr - str.data();
+		return ret;
+	}
+	template<std::size_t max_len, mpd::overflow_behavior_t behavior>
+	long long stoll(const small_basic_string<char, max_len, behavior>& str, std::size_t* pos = 0, int base = 10)
+	{
+		char* ptr = 0;
+		long long ret = std::strtoll(str.data(), &ptr, base);
+		if (pos) *pos = ptr - str.data();
+		return ret;
+	}
+	template<std::size_t max_len, mpd::overflow_behavior_t behavior>
+	long long stoll(const small_basic_string<wchar_t, max_len, behavior>& str, std::size_t* pos = 0, int base = 10)
+	{
+		wchar_t* ptr = 0;
+		long long ret = std::wcstoll(str.data(), &ptr, base);
+		if (pos) *pos = ptr - str.data();
+		return ret;
+	}
 }
 namespace std {
 	MPD_SSTRING_ONE_TEMPLATE

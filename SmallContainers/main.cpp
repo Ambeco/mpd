@@ -8,6 +8,7 @@
 
 using test_string_t = mpd::small_basic_string<wchar_t, 5, mpd::overflow_behavior_t::silently_truncate>;
 using bigger_string_t = mpd::small_basic_string<wchar_t, 7, mpd::overflow_behavior_t::silently_truncate>;
+using char_test_string_t = mpd::small_basic_string<char, 5, mpd::overflow_behavior_t::silently_truncate>;
 
 struct c_out_it {
 	using value_type = wchar_t;
@@ -291,5 +292,11 @@ int main() {
 	test_mutation(L"lmnop", getline(istream(L"lmnopq"), v));
 	test_mutation(L"lmno", getline(istream(L"lmno"), v));
 	test_mutation(L"lmn", getline(istream(L"lmnopq"), v, L'o'));
+	assert(stoi(char_test_string_t("1234")) == 1234);
+	assert(stoi(test_string_t(L"1234")) == 1234);
+	assert(stol(char_test_string_t("1234")) == 1234l);
+	assert(stol(test_string_t(L"1234")) == 1234l);
+	assert(stoll(char_test_string_t("1234")) == 1234ll);
+	assert(stoll(test_string_t(L"1234")) == 1234ll);
 	return 0;
 }
