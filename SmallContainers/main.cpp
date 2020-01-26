@@ -1,5 +1,6 @@
 #define MPD_SSTRING_OVERRRUN_CHECKS
 #include "small_string.h"
+#include <functional>
 #include <iostream>
 #include <utility>
 #include <cwchar>
@@ -276,5 +277,8 @@ int main() {
 	assert((small_lvalue <= std_string) == false);
 	assert((small_lvalue > std_string) == true);
 	assert((small_lvalue >= std_string) == true);
+	test_mutation(L"abd", erase(v, L'c'));
+	auto pred = [](wchar_t wc) {return wc == L'c'; };
+	test_mutation(L"abd", erase_if(v, pred));
 	return 0;
 }

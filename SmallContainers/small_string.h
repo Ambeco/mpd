@@ -281,11 +281,11 @@ namespace mpd {
 			return npos;
 		}
 		template<class U>
-		static MPD_NOINLINE(const charT*) remove(const charT* buffer, std::size_t before_size, const U& value) {
+		static MPD_NOINLINE(const charT*) _remove(charT* buffer, std::size_t before_size, const U& value) {
 			return std::remove(buffer, buffer + before_size, value);
 		}
 		template<class Pred>
-		static MPD_NOINLINE(const charT*) remove_if(const charT* buffer, std::size_t before_size, Pred&& predicate) {
+		static MPD_NOINLINE(const charT*) _remove_if(charT* buffer, std::size_t before_size, Pred&& predicate) {
 			return std::remove_if(buffer, buffer + before_size, std::forward<Pred>(predicate));
 		}
 	};
@@ -1243,12 +1243,12 @@ namespace mpd {
 	}
 	template<class charT, std::size_t max_len, overflow_behavior_t behavior, class U>
 	void erase(small_basic_string<charT, max_len, behavior>& str, const U& value) noexcept {
-		const charT* end = small_basic_string_helper<charT, behavior>::remove(str.data(), str.size(), value);
+		const charT* end = small_basic_string_helper<charT, behavior>::_remove(str.data(), str.size(), value);
 		str.resize(end - str.data());
 	}
 	template<class charT, std::size_t max_len, overflow_behavior_t behavior, class Pred>
-	void erase(small_basic_string<charT, max_len, behavior>& str, Pred&& predicate) {
-		const charT* end = small_basic_string_helper<charT, behavior>::remove_if(str.data(), str.size(), std::forward<Pred>(predicate));
+	void erase_if(small_basic_string<charT, max_len, behavior>& str, Pred&& predicate) {
+		const charT* end = small_basic_string_helper<charT, behavior>::_remove_if(str.data(), str.size(), std::forward<Pred>(predicate));
 		str.resize(end - str.data());
 	}
 	MPD_SSTRING_ONE_TEMPLATE
