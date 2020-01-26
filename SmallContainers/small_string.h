@@ -237,8 +237,7 @@ namespace mpd {
 		}
 		static MPD_NOINLINE(std::size_t) _rfind(const charT* buffer, std::size_t before_size, const charT* other, std::size_t self_idx, std::size_t other_count) noexcept {
 			if (other_count > before_size) return npos;
-			self_idx = clamp_max(self_idx, before_size - other_count + 1);
-			std::size_t i = self_idx;
+			std::size_t i = clamp_max(self_idx, before_size - other_count) + 1;
 			while (i-- > 0) { //decrementing unsigned counters can be tricky
 				if (traits_type::compare(buffer + i, other, other_count) == 0)
 					return i;
@@ -264,7 +263,7 @@ namespace mpd {
 			return npos;
 		}
 		static MPD_NOINLINE(std::size_t) _find_last_of(const charT* buffer, std::size_t before_size, const charT* other, std::size_t self_idx, std::size_t other_count) noexcept {
-			std::size_t i = clamp_max(self_idx, before_size);
+			std::size_t i = clamp_max(self_idx, before_size) + 1;
 			while (i-- > 0) { //decrementing unsigned counters can be tricky
 				for (int j = 0; j < other_count; j++)
 					if (buffer[i] == other[j]) return i;
@@ -272,10 +271,12 @@ namespace mpd {
 			return npos;
 		}
 		static MPD_NOINLINE(std::size_t) _find_last_not_of(const charT* buffer, std::size_t before_size, const charT* other, std::size_t self_idx, std::size_t other_count) noexcept {
-			std::size_t i = clamp_max(self_idx, before_size);
+			std::size_t i = clamp_max(self_idx, before_size) + 1;
 			while (i-- > 0) { //decrementing unsigned counters can be tricky
-				for (int j = 0; j < other_count; j++)
-					if (buffer[i] == other[j]) return i;
+				int j;
+				for (j = 0; j < other_count; j++)
+					if (buffer[i] == other[j]) break;
+				if (j == other_count) return i;
 			}
 			return npos;
 		}
@@ -965,7 +966,7 @@ namespace mpd {
 		{
 			return this->_find_first_of(data(), size(), other, self_idx, strnlen_s_algorithm(other, size() + 1));
 		}
-		std::size_t find_first_of(charT* ch, std::size_t self_idx = 0) const noexcept
+		std::size_t find_first_of(charT ch, std::size_t self_idx = 0) const noexcept
 		{
 			return this->_find_first_of(data(), size(), &ch, self_idx, 1);
 		}
@@ -998,7 +999,7 @@ namespace mpd {
 		{
 			return this->_find_first_not_of(data(), size(), other, self_idx, strnlen_s_algorithm(other, size() + 1));
 		}
-		std::size_t find_first_not_of(charT* ch, std::size_t self_idx = 0) const noexcept
+		std::size_t find_first_not_of(charT ch, std::size_t self_idx = 0) const noexcept
 		{
 			return this->_find_first_not_of(data(), size(), &ch, self_idx, 1);
 		}
@@ -1031,7 +1032,7 @@ namespace mpd {
 		{
 			return this->_find_last_of(data(), size(), other, self_idx, strnlen_s_algorithm(other, size() + 1));
 		}
-		std::size_t find_last_of(charT* ch, std::size_t self_idx = npos) const noexcept
+		std::size_t find_last_of(charT ch, std::size_t self_idx = npos) const noexcept
 		{
 			return this->_find_last_of(data(), size(), &ch, self_idx, 1);
 		}
@@ -1064,7 +1065,7 @@ namespace mpd {
 		{
 			return this->_find_last_not_of(data(), size(), other, self_idx, strnlen_s_algorithm(other, size() + 1));
 		}
-		std::size_t find_last_not_of(charT* ch, std::size_t self_idx = npos) const noexcept
+		std::size_t find_last_not_of(charT ch, std::size_t self_idx = npos) const noexcept
 		{
 			return this->_find_last_not_of(data(), size(), &ch, self_idx, 1);
 		}
