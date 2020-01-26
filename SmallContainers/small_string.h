@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <array>
 #include <iostream>
+#include <locale>
 #include <memory>
 #include <string>
 
@@ -287,6 +288,19 @@ namespace mpd {
 		template<class Pred>
 		static MPD_NOINLINE(const charT*) _remove_if(charT* buffer, std::size_t before_size, Pred&& predicate) {
 			return std::remove_if(buffer, buffer + before_size, std::forward<Pred>(predicate));
+		}
+		static MPD_NOINLINE(std::size_t) _istream(charT* buffer, std::size_t before_size, std::size_t max_len, std::basic_istream<charT, std::char_traits<charT>>& in) {
+			const typename std::basic_istream<charT, std::char_traits<charT>>::sentry sentry(in);
+			auto loc = in.getloc();
+			std::size_t i;
+			for (i = 0; i < max_len; i++) {
+				charT c = in.get();
+				if (c == traits_type::eof() || !in || std::isspace(c, loc)) break;
+				buffer[i] = c;
+			}
+			i = max_length_check(i, max_len);
+			in.width(0);
+			return i;
 		}
 	};
 	template<class charT, std::size_t max_len, overflow_behavior_t overflow_behavior = overflow_behavior_t::exception>
@@ -1085,6 +1099,9 @@ namespace mpd {
 			return this->_find_last_not_of(data(), size(), other.data(), self_idx, other.size());
 		}
 #endif
+		friend std::basic_istream<charT, std::char_traits<charT>>& operator>>(std::basic_istream<charT, std::char_traits<charT>>& in, small_basic_string<charT, max_len, overflow_behavior>& str) {
+			str.set_size(str._istream(str.data(), str.size(), max_len, in)); return in;
+		}
 	};
 #define MPD_SSTRING_ONE_TEMPLATE template<class charT, std::size_t max_len, mpd::overflow_behavior_t behavior>
 #define MPD_SSTRING_ONE_AND_STDSTRING_TEMPLATE template<class charT, std::size_t max_len, mpd::overflow_behavior_t behavior, class alloc>
@@ -1255,15 +1272,11 @@ namespace mpd {
 		std::basic_ostream<charT, std::char_traits<charT>>& operator<<(std::basic_ostream<charT, std::char_traits<charT>>& out, const small_basic_string<charT, max_len, behavior>& str) {
 		return out << str.data();
 	}
-	//	MPD_SSTRING_ONE_TEMPLATE
-	//	std::basic_istream<charT, std::char_traits<charT>>& operator>>(std::basic_istream<charT, std::char_traits<charT>>& in, const small_basic_string<charT, max_len, behavior>& str) {
-	//		return ? ;
-	//	}
 
-		//getline
-		//stoi, stol, stoll, stoul, stoull, stof, stod, stold, to_short_string, to_short_wstring
-		//operator""ss
-		//hash<short_string>, hash<short_wstring>
+	//getline
+	//stoi, stol, stoll, stoul, stoull, stof, stod, stold, to_short_string, to_short_wstring
+	//operator""ss
+	//hash<short_string>, hash<short_wstring>
 
 	template<unsigned char max_len>
 	using small_string = small_basic_string<char, max_len, overflow_behavior_t::exception>;

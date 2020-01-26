@@ -2,6 +2,7 @@
 #include "small_string.h"
 #include <functional>
 #include <iostream>
+#include <sstream>
 #include <utility>
 #include <cwchar>
 
@@ -55,12 +56,16 @@ void _test_big_mutation(const wchar_t* expected_value, F func) {
 }
 #define test_big_mutation(expected_value, op)  _test_big_mutation(expected_value, [=](bigger_string_t& v){op;});
 
-
 void test_def_ctor() {
 	test_string_t str{};
 	assert(str.size() == 0);
 	assert(*str.data() == 0);
 }
+
+std::basic_istringstream<wchar_t> istream(const wchar_t* str) {
+	return std::basic_istringstream<wchar_t>(str);
+}
+using ostream_t = std::basic_ostringstream<wchar_t>;
 
 int main() {
 	std::wstring std_string = L"fghijk";
@@ -280,5 +285,8 @@ int main() {
 	test_mutation(L"abd", erase(v, L'c'));
 	auto pred = [](wchar_t wc) {return wc == L'c'; };
 	test_mutation(L"abd", erase_if(v, pred));
+	test_mutation(L"lmnop", istream(L"lmnopq") >> v);
+	test_mutation(L"lmno", istream(L"lmno") >> v);
+	test_mutation(L"abcd", { ostream_t out; out << v; v = out.str(); })
 	return 0;
 }
