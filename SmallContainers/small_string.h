@@ -1272,6 +1272,12 @@ namespace mpd {
 		std::basic_ostream<charT, std::char_traits<charT>>& operator<<(std::basic_ostream<charT, std::char_traits<charT>>& out, const small_basic_string<charT, max_len, behavior>& str) {
 		return out << str.data();
 	}
+	MPD_SSTRING_ONE_TEMPLATE
+	std::basic_istream<charT, std::char_traits<charT>>& operator>>(std::basic_istream<charT, std::char_traits<charT>>& in, small_basic_string<charT, max_len, behavior>& str) {
+		str.resize(max_len);
+		str.resize(small_basic_string_helper<charT, behavior>::_istream(str.data(), str.size(), max_len, in)); 
+		return in;
+	}
 
 	//getline
 	//stoi, stol, stoll, stoul, stoull, stof, stod, stold, to_short_string, to_short_wstring
