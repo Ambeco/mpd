@@ -294,9 +294,19 @@ int main() {
 	test_mutation(L"lmn", getline(istream(L"lmnopq"), v, L'o'));
 	assert(stoi(char_test_string_t("1234")) == 1234);
 	assert(stoi(test_string_t(L"1234")) == 1234);
-	assert(stol(char_test_string_t("1234")) == 1234l);
-	assert(stol(test_string_t(L"1234")) == 1234l);
+	assert(stol(char_test_string_t("1234")) == 1234);
+	assert(stol(test_string_t(L"1234")) == 1234);
 	assert(stoll(char_test_string_t("1234")) == 1234ll);
 	assert(stoll(test_string_t(L"1234")) == 1234ll);
+	assert(stoul(char_test_string_t("1234")) == 1234ul);
+	assert(stoul(test_string_t(L"1234")) == 1234ul);
+	assert(stoull(char_test_string_t("1234")) == 1234ull);
+	assert(stoull(test_string_t(L"1234")) == 1234ull);
+	assert(stof(char_test_string_t("12.34")) == 12.34f);
+	assert(stof(test_string_t(L"12.34")) == 12.34f);
+	assert(stod(char_test_string_t("12.34")) == 12.34);
+	assert(stod(test_string_t(L"12.34")) == 12.34);
+	assert(stold(char_test_string_t("12.34")) == 12.34l);
+	assert(stold(test_string_t(L"12.34")) == 12.34l);
 	return 0;
 }

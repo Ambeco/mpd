@@ -1306,8 +1306,7 @@ namespace mpd {
 		str.resize(small_basic_string_helper<charT, behavior>::_getline(str.data(), str.size(), max_len, in, delim));
 		return in;
 	}
-
-	//stoi, stol, stoll, stoul, stoull, stof, stod, stold, to_short_string, to_short_wstring
+	//stof, stod, stold, to_short_string, to_short_wstring
 	//operator""ss
 	//hash<short_string>, hash<short_wstring>
 
@@ -1368,6 +1367,86 @@ namespace mpd {
 	{
 		wchar_t* ptr = 0;
 		long long ret = std::wcstoll(str.data(), &ptr, base);
+		if (pos) *pos = ptr - str.data();
+		return ret;
+	}
+	template<std::size_t max_len, mpd::overflow_behavior_t behavior>
+	unsigned long stoul(const small_basic_string<char, max_len, behavior>& str, std::size_t* pos = 0, int base = 10)
+	{
+		char* ptr = 0;
+		unsigned long ret = std::strtoul(str.data(), &ptr, base);
+		if (pos) *pos = ptr - str.data();
+		return ret;
+	}
+	template<std::size_t max_len, mpd::overflow_behavior_t behavior>
+	unsigned long stoul(const small_basic_string<wchar_t, max_len, behavior>& str, std::size_t* pos = 0, int base = 10)
+	{
+		wchar_t* ptr = 0;
+		unsigned long ret = std::wcstoul(str.data(), &ptr, base);
+		if (pos) *pos = ptr - str.data();
+		return ret;
+	}
+	template<std::size_t max_len, mpd::overflow_behavior_t behavior>
+	unsigned long long stoull(const small_basic_string<char, max_len, behavior>& str, std::size_t* pos = 0, int base = 10)
+	{
+		char* ptr = 0;
+		unsigned long long ret = std::strtoull(str.data(), &ptr, base);
+		if (pos) *pos = ptr - str.data();
+		return ret;
+	}
+	template<std::size_t max_len, mpd::overflow_behavior_t behavior>
+	unsigned long long stoull(const small_basic_string<wchar_t, max_len, behavior>& str, std::size_t* pos = 0, int base = 10)
+	{
+		wchar_t* ptr = 0;
+		unsigned long long ret = std::wcstoull(str.data(), &ptr, base);
+		if (pos) *pos = ptr - str.data();
+		return ret;
+	}
+	template<std::size_t max_len, mpd::overflow_behavior_t behavior>
+	float stof(const small_basic_string<char, max_len, behavior>& str, std::size_t* pos = 0)
+	{
+		char* ptr = 0;
+		float ret = std::strtof(str.data(), &ptr);
+		if (pos) *pos = ptr - str.data();
+		return ret;
+	}
+	template<std::size_t max_len, mpd::overflow_behavior_t behavior>
+	float stof(const small_basic_string<wchar_t, max_len, behavior>& str, std::size_t* pos = 0)
+	{
+		wchar_t* ptr = 0;
+		float ret = std::wcstof(str.data(), &ptr);
+		if (pos) *pos = ptr - str.data();
+		return ret;
+	}
+	template<std::size_t max_len, mpd::overflow_behavior_t behavior>
+	double stod(const small_basic_string<char, max_len, behavior>& str, std::size_t* pos = 0)
+	{
+		char* ptr = 0;
+		double ret = std::strtod(str.data(), &ptr);
+		if (pos) *pos = ptr - str.data();
+		return ret;
+	}
+	template<std::size_t max_len, mpd::overflow_behavior_t behavior>
+	double stod(const small_basic_string<wchar_t, max_len, behavior>& str, std::size_t* pos = 0)
+	{
+		wchar_t* ptr = 0;
+		double ret = std::wcstod(str.data(), &ptr);
+		if (pos) *pos = ptr - str.data();
+		return ret;
+	}
+	template<std::size_t max_len, mpd::overflow_behavior_t behavior>
+	long double stold(const small_basic_string<char, max_len, behavior>& str, std::size_t* pos = 0)
+	{
+		char* ptr = 0;
+		long double ret = std::strtold(str.data(), &ptr);
+		if (pos) *pos = ptr - str.data();
+		return ret;
+	}
+	template<std::size_t max_len, mpd::overflow_behavior_t behavior>
+	long double stold(const small_basic_string<wchar_t, max_len, behavior>& str, std::size_t* pos = 0)
+	{
+		wchar_t* ptr = 0;
+		long double ret = std::wcstold(str.data(), &ptr);
 		if (pos) *pos = ptr - str.data();
 		return ret;
 	}
