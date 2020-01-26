@@ -27,7 +27,7 @@ void test_ctor(const wchar_t* expected_value, Ts&&... vals) {
 	std::size_t found_size = str.size();
 	const wchar_t* found_value = str.data();
 	assert(found_size == wcslen(expected_value));
-	assert(wcscmp(found_value, expected_value)==0);
+	assert(wcscmp(found_value, expected_value) == 0);
 }
 
 template<class F>
@@ -41,8 +41,19 @@ void _test_mutation(const wchar_t* expected_value, F func) {
 }
 #define test_mutation(expected_value, op) \
 _test_mutation(expected_value, [=](test_string_t& v){op;});
-#define test_mutate_and(op, check) \
-{test_string_t v; op; assert(check);}
+#define test_mutate_and(op, check)  {test_string_t v; op; assert(check);}
+
+template<class F>
+void _test_big_mutation(const wchar_t* expected_value, F func) {
+	bigger_string_t str(L"abcd");
+	func(str);
+	std::size_t found_size = str.size();
+	const wchar_t* found_value = str.data();
+	assert(found_size == wcslen(expected_value));
+	assert(wcscmp(found_value, expected_value) == 0);
+}
+#define test_big_mutation(expected_value, op)  _test_big_mutation(expected_value, [=](bigger_string_t& v){op;});
+
 
 void test_def_ctor() {
 	test_string_t str{};
@@ -116,7 +127,7 @@ int main() {
 	test_mutation(L"azbcd", v.insert(1, L"zz", 1));
 	test_mutation(L"arstu", v.insert(1, large_lvalue));
 	test_mutation(L"atbcd", v.insert(1, large_lvalue, 2, 1));
-	test_mutation(L"abzcd", v.insert(v.begin()+2, 'z'));
+	test_mutation(L"abzcd", v.insert(v.begin() + 2, 'z'));
 	test_mutation(L"abzzc", v.insert(v.begin() + 2, 2, 'z'));
 	test_mutation(L"abfgh", v.insert(v.begin() + 2, std_string.begin(), std_string.end()));
 	test_mutation(L"abABC", v.insert(v.begin() + 2, c_out_it{ 'A' }, c_out_it{ 'Z' }));
@@ -125,7 +136,7 @@ int main() {
 	test_mutation(L"", v.erase());
 	test_mutation(L"ad", v.erase(1, 2));
 	test_mutation(L"bcd", v.erase(v.begin()));
-	test_mutation(L"cd", v.erase(v.begin(), v.begin()+2));
+	test_mutation(L"cd", v.erase(v.begin(), v.begin() + 2));
 	test_mutation(L"abcdz", v.push_back('z'));
 	test_mutation(L"abc", v.pop_back());
 	test_mutation(L"abcdz", v.append(2, 'z'));
@@ -142,7 +153,7 @@ int main() {
 	test_mutation(L"abcdx", v += init_list);
 	test_mutation(L"abcdf", v += std_string);
 	test_mutation(L"arstu", v.replace(1, 2, large_lvalue));
-	test_mutation(L"arstu", v.replace(v.begin()+1, v.begin()+2, large_lvalue));
+	test_mutation(L"arstu", v.replace(v.begin() + 1, v.begin() + 2, large_lvalue));
 	test_mutation(L"astcd", v.replace(1, 1, large_lvalue, 1, 2));
 	test_mutation(L"afghi", v.replace(v.begin() + 1, v.begin() + 2, std_string.begin(), std_string.end()));
 	test_mutation(L"aABCD", v.replace(v.begin() + 1, v.begin() + 2, c_out_it{ 'A' }, c_out_it{ 'Z' }));
@@ -151,7 +162,7 @@ int main() {
 	test_mutation(L"a12cd", v.replace(v.begin() + 1, v.begin() + 2, L"12", 2));
 	test_mutation(L"a12cd", v.replace(1, 1, L"12"));
 	test_mutation(L"aad", v.replace(1, 2, 'a'));
-	test_mutation(L"aad", v.replace(v.begin()+1, v.begin()+3, 'a'));
+	test_mutation(L"aad", v.replace(v.begin() + 1, v.begin() + 3, 'a'));
 	test_mutation(L"axyz,", v.replace(v.begin() + 1, v.begin() + 3, init_list));
 	test_mutation(L"aghcd", v.replace(1, 1, std_string, 1, 2));
 	test_mutation(L"ab", v.resize(2));
@@ -234,5 +245,12 @@ int main() {
 	assert(small_lvalue.find_last_not_of(L'n') == 5);
 	assert(small_lvalue.find_last_not_of(std_string, 1) == 1);
 	assert(small_lvalue.find_last_not_of(std_string) == 5);
+	test_big_mutation(L"abcdlmn", v = v + small_lvalue);
+	test_big_mutation(L"abcd123", v = v + L"123");
+	test_big_mutation(L"123abcd", v = L"123" + v);
+	test_big_mutation(L"abcd1", v = v + L'1');
+	test_big_mutation(L"1abcd", v = L'1' + v);
+	test_big_mutation(L"abcdfgh", v = v + std_string);
+	test_big_mutation(L"fghijka", v = std_string + v);
 	return 0;
 }

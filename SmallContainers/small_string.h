@@ -1094,21 +1094,21 @@ namespace mpd {
 		small_basic_string<charT, max_len + other_len, behavior> operator+(const small_basic_string<charT, max_len, behavior>& lhs, const small_basic_string<charT, other_len, other_behavior>& rhs) noexcept {
 		return small_basic_string<charT, max_len + other_len, behavior>(lhs).append(rhs);
 	}
-	MPD_SSTRING_TWO_TEMPLATE
+	MPD_SSTRING_ONE_TEMPLATE
 		small_basic_string<charT, max_len, behavior> operator+(const small_basic_string<charT, max_len, behavior>& lhs, const charT* rhs) {
 		return small_basic_string<charT, max_len, behavior>(lhs).append(rhs);
 	}
-	MPD_SSTRING_TWO_TEMPLATE
+	MPD_SSTRING_ONE_TEMPLATE
 		small_basic_string<charT, max_len, behavior> operator+(const charT* lhs, const small_basic_string<charT, max_len, behavior>& rhs) {
 		return small_basic_string<charT, max_len, behavior>(lhs).append(rhs);
 	}
-	MPD_SSTRING_TWO_TEMPLATE
+	MPD_SSTRING_ONE_TEMPLATE
 		small_basic_string<charT, max_len + 1, behavior> operator+(const small_basic_string<charT, max_len, behavior>& lhs, charT rhs) {
-		return small_basic_string<charT, max_len + 1, behavior>(lhs).append(rhs);
+		return small_basic_string<charT, max_len + 1, behavior>(lhs).append(1, rhs);
 	}
-	MPD_SSTRING_TWO_TEMPLATE
+	MPD_SSTRING_ONE_TEMPLATE
 		small_basic_string<charT, max_len + 1, behavior> operator+(charT lhs, const small_basic_string<charT, max_len, behavior>& rhs) {
-		return small_basic_string<charT, max_len + 1, behavior>(lhs).append(rhs);
+		return small_basic_string<charT, max_len + 1, behavior>(1, lhs).append(rhs);
 	}
 	MPD_SSTRING_ONE_AND_STDSTRING_TEMPLATE
 		small_basic_string<charT, max_len + 1, behavior> operator+(const small_basic_string<charT, max_len, behavior>& lhs, const std::basic_string<charT, std::char_traits<charT>, alloc>& rhs) {
