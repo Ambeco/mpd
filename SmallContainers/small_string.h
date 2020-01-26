@@ -109,6 +109,10 @@ namespace mpd {
 			if (given > maximum) throw std::out_of_range(std::to_string(given) + " is an invalid index");
 			return given;
 		}
+		static std::size_t clamp_max(std::size_t given, std::size_t maximum) {
+			if (given > maximum) return maximum;
+			return given;
+		}
 		static MPD_NOINLINE(std::size_t) _assign(charT* buffer, std::size_t before_size, std::size_t max_len, std::size_t src_count, charT src) noexcept(overflow_throws) {
 			src_count = max_length_check(src_count, max_len);
 			std::fill_n(buffer, src_count, src);
@@ -161,7 +165,7 @@ namespace mpd {
 		}
 		std::size_t _erase(charT* buffer, std::size_t before_size, std::size_t max_len, std::size_t idx, std::size_t count = npos) noexcept(overflow_throws) {
 			idx = index_range_check(idx, before_size);
-			count = (count > before_size - idx ? before_size - idx : count);
+			count = clamp_max(count, before_size - idx);
 			std::size_t move_count = before_size - idx - count;
 			std::copy_n(buffer + idx + count, move_count, buffer + idx);
 			return before_size - count;
@@ -221,8 +225,8 @@ namespace mpd {
 			if (r || self_count == other_count) return r;
 			return self_count == cmp_count ? -1 : 1;
 		}
-		static MPD_NOINLINE(std::size_t) _find(const charT* buffer, std::size_t before_size, const charT* other, std::size_t self_idx, std::size_t other_count) noexcept(overflow_throws) {
-			self_idx = index_range_check(self_idx, before_size);
+		static MPD_NOINLINE(std::size_t) _find(const charT* buffer, std::size_t before_size, const charT* other, std::size_t self_idx, std::size_t other_count) noexcept {
+			self_idx = clamp_max(self_idx, before_size);
 			if (other_count > before_size - self_idx) return npos;
 			std::size_t max = before_size - other_count + 1;
 			for (std::size_t i = self_idx; i < max; i++) {
@@ -231,26 +235,26 @@ namespace mpd {
 			}
 			return npos;
 		}
-		static MPD_NOINLINE(std::size_t) _rfind(const charT* buffer, std::size_t before_size, const charT* other, std::size_t self_idx, std::size_t other_count) noexcept(overflow_throws) {
-			self_idx = index_range_check(self_idx, before_size);
-			if (other_count > before_size - self_idx) return npos;
-			std::size_t max = before_size - other_count + 1;
-			for (std::size_t i = max - 1; i >= self_idx; --i) {
+		static MPD_NOINLINE(std::size_t) _rfind(const charT* buffer, std::size_t before_size, const charT* other, std::size_t self_idx, std::size_t other_count) noexcept {
+			if (other_count > before_size) return npos;
+			self_idx = clamp_max(self_idx, before_size - other_count + 1);
+			std::size_t i = self_idx;
+			while (i-- > 0) { //decrementing unsigned counters can be tricky
 				if (traits_type::compare(buffer + i, other, other_count) == 0)
 					return i;
 			}
 			return npos;
 		}
-		static MPD_NOINLINE(std::size_t) _find_first_of(const charT* buffer, std::size_t before_size, const charT* other, std::size_t self_idx, std::size_t other_count) noexcept(overflow_throws) {
-			self_idx = index_range_check(self_idx, before_size);
+		static MPD_NOINLINE(std::size_t) _find_first_of(const charT* buffer, std::size_t before_size, const charT* other, std::size_t self_idx, std::size_t other_count) noexcept {
+			self_idx = clamp_max(self_idx, before_size);
 			for (std::size_t i = self_idx; i < before_size; i++) {
 				for (int j = 0; j < other_count; j++)
 					if (buffer[i] == other[j]) return i;
 			}
 			return npos;
 		}
-		static MPD_NOINLINE(std::size_t) _find_first_not_of(const charT* buffer, std::size_t before_size, const charT* other, std::size_t self_idx, std::size_t other_count) noexcept(overflow_throws) {
-			self_idx = index_range_check(self_idx, before_size);
+		static MPD_NOINLINE(std::size_t) _find_first_not_of(const charT* buffer, std::size_t before_size, const charT* other, std::size_t self_idx, std::size_t other_count) noexcept {
+			self_idx = clamp_max(self_idx, before_size);
 			for (std::size_t i = self_idx; i < before_size; i++) {
 				int j;
 				for (j = 0; j < other_count; j++)
@@ -259,19 +263,17 @@ namespace mpd {
 			}
 			return npos;
 		}
-		static MPD_NOINLINE(std::size_t) _find_last_of(const charT* buffer, std::size_t before_size, const charT* other, std::size_t self_idx, std::size_t other_count) noexcept(overflow_throws) {
-			self_idx = index_range_check(self_idx, before_size);
-			for (std::size_t i = before_size; i > self_idx;) {
-				--i;
+		static MPD_NOINLINE(std::size_t) _find_last_of(const charT* buffer, std::size_t before_size, const charT* other, std::size_t self_idx, std::size_t other_count) noexcept {
+			std::size_t i = clamp_max(self_idx, before_size);
+			while (i-- > 0) { //decrementing unsigned counters can be tricky
 				for (int j = 0; j < other_count; j++)
 					if (buffer[i] == other[j]) return i;
 			}
 			return npos;
 		}
-		static MPD_NOINLINE(std::size_t) _find_last_not_of(const charT* buffer, std::size_t before_size, const charT* other, std::size_t self_idx, std::size_t other_count) noexcept(overflow_throws) {
-			self_idx = index_range_check(self_idx, before_size);
-			for (std::size_t i = before_size; i > self_idx;) {
-				--i;
+		static MPD_NOINLINE(std::size_t) _find_last_not_of(const charT* buffer, std::size_t before_size, const charT* other, std::size_t self_idx, std::size_t other_count) noexcept {
+			std::size_t i = clamp_max(self_idx, before_size);
+			while (i-- > 0) { //decrementing unsigned counters can be tricky
 				for (int j = 0; j < other_count; j++)
 					if (buffer[i] == other[j]) return i;
 			}
@@ -314,6 +316,7 @@ namespace mpd {
 			return mpd::max_length_check<overflow_behavior>(given, max_len);
 		}
 		using small_basic_string_helper<charT, overflow_behavior>::index_range_check;
+		using small_basic_string_helper<charT, overflow_behavior>::clamp_max;
 	public:
 		using traits_type = std::char_traits<charT>;
 		using value_type = charT;
@@ -424,7 +427,7 @@ namespace mpd {
 		template<std::size_t other_max, overflow_behavior_t other_overflow>
 		small_basic_string& assign(const small_basic_string<charT, other_max, other_overflow>& src, std::size_t src_idx, std::size_t src_count = npos) noexcept(overflow_throws) {
 			src_idx = index_range_check(src_idx, src.size());
-			src_count = (src_count > src.size() - src_idx ? src.size() - src_idx : src_count);
+			src_count = clamp_max(src_count, src.size() - src_idx);
 			return assign(src.data() + src_idx, src.data() + src_idx + src_count);
 		}
 		small_basic_string& assign(const charT* src) noexcept(overflow_throws) {
@@ -455,7 +458,7 @@ namespace mpd {
 			small_basic_string& assign(const T& src, std::size_t src_idx, std::size_t src_count = npos) noexcept(overflow_throws)
 		{
 			src_idx = index_range_check(src_idx, src.size());
-			src_count = (src_count > src.size() - src_idx ? src.size() - src_idx : src_count);
+			src_count = clamp_max(src_count, src.size() - src_idx);
 			return assign(src.data() + src_idx, src.data() + src_idx + src_count);
 		}
 #else 
@@ -463,9 +466,9 @@ namespace mpd {
 		small_basic_string& assign(const std::basic_string<charT, traits_type, alloc>& src, std::size_t src_idx = 0, std::size_t src_count = npos) noexcept(overflow_throws)
 		{
 			src_idx = index_range_check(src_idx, src.size());
-			src_count = (src_count > src.size() - src_idx ? src.size() - src_idx : src_count);
+			src_count = clamp_max(src_count, src.size() - src_idx);
 			return assign(src.data() + src_idx, src.data() + src_idx + src_count);
-	}
+		}
 #endif
 		allocator_type get_allocator() const noexcept { return {}; }
 		reference at(std::size_t src_idx) { return buffer.at(index_range_check(src_idx, size())); }
@@ -526,7 +529,7 @@ namespace mpd {
 		template<std::size_t other_max, overflow_behavior_t other_overflow>
 		small_basic_string& insert(std::size_t dst_idx, const small_basic_string<charT, other_max, other_overflow>& src, std::size_t src_idx, std::size_t src_count = npos) noexcept(overflow_throws) {
 			src_idx = index_range_check(src_idx, src.size());
-			src_count = (src_count > src.size() - src_idx ? src.size() - src_idx : src_count);
+			src_count = clamp_max(src_count, src.size() - src_idx);
 			insert(begin() + dst_idx, src.data() + src_idx, src.data() + src_idx + src_count);
 			return *this;
 		}
@@ -562,7 +565,7 @@ namespace mpd {
 		{
 			std::basic_string_view<charT, traits_type> view(src);
 			src_idx = index_range_check(src_idx, view.size());
-			src_count = (src_count > view.size() - src_idx ? view.size() - src_idx : src_count);
+			src_count = clamp_max(src_count, view.size() - src_idx);
 			this->_insert(data(), size(), max_len, dst_idx, view.data() + src_idx, view.data() + src_idx + src_count);
 			return *this;
 		}
@@ -571,10 +574,10 @@ namespace mpd {
 		small_basic_string& insert(std::size_t dst_idx, const std::basic_string<charT, traits_type, alloc>& src, std::size_t src_idx = 0, std::size_t src_count = npos) noexcept(overflow_throws)
 		{
 			src_idx = index_range_check(src_idx, src.size());
-			src_count = (src_count > src.size() - src_idx ? src.size() - src_idx : src_count);
+			src_count = clamp_max(src_count, src.size() - src_idx);
 			insert(cbegin() + dst_idx, src.data() + src_idx, src.data() + src_idx + src_count);
 			return *this;
-}
+		}
 #endif
 
 		small_basic_string& erase() noexcept {
@@ -619,7 +622,7 @@ namespace mpd {
 		template<std::size_t other_max, overflow_behavior_t other_overflow>
 		small_basic_string& append(const small_basic_string<charT, other_max, other_overflow>& src, std::size_t src_idx, std::size_t src_count = npos) noexcept(overflow_throws) {
 			src_idx = index_range_check(src_idx, src.size());
-			src_count = (src_count > src.size() - src_idx ? src.size() - src_idx : src_count);
+			src_count = clamp_max(src_count, src.size() - src_idx);
 			return append(src.data() + src_idx, src.data() + src_idx + src_count);
 		}
 		small_basic_string& append(const charT* src, size_t src_count) noexcept(overflow_throws) {
@@ -656,7 +659,7 @@ namespace mpd {
 		{
 			std::basic_string_view<charT, traits_type> view(src);
 			src_idx = index_range_check(src_idx, view.size());
-			src_count = (src_count > view.size() - src_idx ? view.size() - src_idx : src_count);
+			src_count = clamp_max(src_count, view.size() - src_idx);
 			return append(view.data() + src_idx, view.data() + src_idx + src_count);
 		}
 #else
@@ -664,7 +667,7 @@ namespace mpd {
 		small_basic_string& append(const std::basic_string<charT, traits_type, alloc>& src, std::size_t src_idx = 0, std::size_t src_count = npos) noexcept(overflow_throws)
 		{
 			src_idx = index_range_check(src_idx, src.size());
-			src_count = (src_count > src.size() - src_idx ? src.size() - src_idx : src_count);
+			src_count = clamp_max(src_count, src.size() - src_idx);
 			return append(src.data() + src_idx, src.data() + src_idx + src_count);
 		}
 #endif
@@ -706,7 +709,7 @@ namespace mpd {
 		small_basic_string& replace(std::size_t dst_idx, std::size_t rem_count, const small_basic_string<charT, other_max, other_overflow>& src, std::size_t src_idx, std::size_t src_count = npos) noexcept(overflow_throws)
 		{
 			src_idx = index_range_check(src_idx, src.size());
-			src_count = (src_count > src.size() - src_idx ? src.size() - src_idx : src_count);
+			src_count = clamp_max(src_count, src.size() - src_idx);
 			return _replace(dst_idx, rem_count, src.data() + src_idx, src_count);
 		}
 		template<class InputIt>
@@ -768,7 +771,7 @@ namespace mpd {
 		{
 			std::basic_string_view<charT, traits_type> view(src);
 			src_idx = index_range_check(src_idx, view.size());
-			src_count = (src_count > view.size() - src_idx ? view.size() - src_idx : src_count);
+			src_count = clamp_max(src_count, view.size() - src_idx);
 			return _replace(dst_first, dst_last, view.data() + src_idx, src_count);
 		}
 	}
@@ -777,7 +780,7 @@ namespace mpd {
 		small_basic_string& replace(std::size_t dst_idx, std::size_t dst_count, const std::basic_string<charT, traits_type, alloc>& src, std::size_t src_idx = 0, std::size_t src_count = npos) noexcept(overflow_throws)
 		{
 			src_idx = index_range_check(src_idx, src.size());
-			src_count = (src_count > src.size() - src_idx ? src.size() - src_idx : src_count);
+			src_count = clamp_max(src_count, src.size() - src_idx);
 			return _replace(dst_idx, dst_count, src.data() + src_idx, src_count);
 		}
 #endif
@@ -884,19 +887,19 @@ namespace mpd {
 		}
 #endif
 		template<std::size_t other_max, overflow_behavior_t other_overflow>
-		std::size_t find(const small_basic_string<charT, other_max, other_overflow>& other, std::size_t self_idx = 0) const noexcept(overflow_throws)
+		std::size_t find(const small_basic_string<charT, other_max, other_overflow>& other, std::size_t self_idx = 0) const noexcept
 		{
 			return this->_find(data(), size(), other.data(), self_idx, other.size());
 		}
-		std::size_t find(const charT* other, std::size_t self_idx, std::size_t count) const noexcept(overflow_throws)
+		std::size_t find(const charT* other, std::size_t self_idx, std::size_t count) const noexcept
 		{
 			return this->_find(data(), size(), other, self_idx, count);
 		}
-		std::size_t find(const charT* other, std::size_t self_idx = 0) const noexcept(overflow_throws)
+		std::size_t find(const charT* other, std::size_t self_idx = 0) const noexcept
 		{
 			return this->_find(data(), size(), other, self_idx, strnlen_s_algorithm(other, size() + 1));
 		}
-		std::size_t find(charT ch, std::size_t self_idx = 0) const noexcept(overflow_throws)
+		std::size_t find(const charT ch, std::size_t self_idx = 0) const noexcept
 		{
 			return this->_find(data(), size(), &ch, self_idx, 1);
 		}
@@ -904,32 +907,32 @@ namespace mpd {
 		template<class T, std::enable_if_t <
 			std::is_convertible_v<const T&, std::basic_string_view<charT>>
 			&& !std::is_convertible_v<const T&, const CharT* >>= 0>
-			std::size_t find(const T& other, std::size_t self_idx = 0) const noexcept(overflow_throws)
+			std::size_t find(const T& other, std::size_t self_idx = 0) const noexcept
 		{
 			std::basic_string_view<charT, traits_type> view(src);
 			return this->_find(data(), size(), view.data(), self_idx, view.size());
 		}
 #else
 		template<class alloc>
-		std::size_t find(const std::basic_string<charT, traits_type, alloc>& other, std::size_t self_idx = 0) const noexcept(overflow_throws)
+		std::size_t find(const std::basic_string<charT, traits_type, alloc>& other, std::size_t self_idx = 0) const noexcept
 		{
 			return this->_find(data(), size(), other.data(), self_idx, other.size());
 		}
 #endif
 		template<std::size_t other_max, overflow_behavior_t other_overflow>
-		std::size_t rfind(const small_basic_string<charT, other_max, other_overflow>& other, std::size_t self_idx = 0) const noexcept(overflow_throws)
+		std::size_t rfind(const small_basic_string<charT, other_max, other_overflow>& other, std::size_t self_idx = npos) const noexcept
 		{
 			return this->_rfind(data(), size(), other.data(), self_idx, other.size());
 		}
-		std::size_t rfind(const charT* other, std::size_t self_idx, std::size_t count) const noexcept(overflow_throws)
+		std::size_t rfind(const charT* other, std::size_t self_idx, std::size_t count) const noexcept
 		{
 			return this->_rfind(data(), size(), other, self_idx, count);
 		}
-		std::size_t rfind(const charT* other, std::size_t self_idx = 0) const noexcept(overflow_throws)
+		std::size_t rfind(const charT* other, std::size_t self_idx = npos) const noexcept
 		{
 			return this->_rfind(data(), size(), other, self_idx, strnlen_s_algorithm(other, size() + 1));
 		}
-		std::size_t rfind(charT* ch, std::size_t self_idx = 0) const noexcept(overflow_throws)
+		std::size_t rfind(const charT ch, std::size_t self_idx = npos) const noexcept
 		{
 			return this->_rfind(data(), size(), &ch, self_idx, 1);
 		}
@@ -937,32 +940,32 @@ namespace mpd {
 		template<class T, std::enable_if_t <
 			std::is_convertible_v<const T&, std::basic_string_view<charT>>
 			&& !std::is_convertible_v<const T&, const CharT* >>= 0>
-			std::size_t rfind(const T& other, std::size_t self_idx = 0) const noexcept(overflow_throws)
+			std::size_t rfind(const T& other, std::size_t self_idx = npos) const noexcept
 		{
 			std::basic_string_view<charT, traits_type> view(src);
 			return this->_rfind(data(), size(), view.data(), self_idx, view.size());
 		}
 #else
 		template<class alloc>
-		std::size_t rfind(const std::basic_string<charT, traits_type, alloc>& other, std::size_t self_idx = 0) const noexcept(overflow_throws)
+		std::size_t rfind(const std::basic_string<charT, traits_type, alloc>& other, std::size_t self_idx = npos) const noexcept
 		{
 			return this->_rfind(data(), size(), other.data(), self_idx, other.size());
 		}
 #endif
 		template<std::size_t other_max, overflow_behavior_t other_overflow>
-		std::size_t find_first_of(const small_basic_string<charT, other_max, other_overflow>& other, std::size_t self_idx = 0) const noexcept(overflow_throws)
+		std::size_t find_first_of(const small_basic_string<charT, other_max, other_overflow>& other, std::size_t self_idx = 0) const noexcept
 		{
 			return this->_find_first_of(data(), size(), other.data(), self_idx, other.size());
 		}
-		std::size_t find_first_of(const charT* other, std::size_t self_idx, std::size_t count) const noexcept(overflow_throws)
+		std::size_t find_first_of(const charT* other, std::size_t self_idx, std::size_t count) const noexcept
 		{
 			return this->_find_first_of(data(), size(), other, self_idx, count);
 		}
-		std::size_t find_first_of(const charT* other, std::size_t self_idx = 0) const noexcept(overflow_throws)
+		std::size_t find_first_of(const charT* other, std::size_t self_idx = 0) const noexcept
 		{
 			return this->_find_first_of(data(), size(), other, self_idx, strnlen_s_algorithm(other, size() + 1));
 		}
-		std::size_t find_first_of(charT* ch, std::size_t self_idx = 0) const noexcept(overflow_throws)
+		std::size_t find_first_of(charT* ch, std::size_t self_idx = 0) const noexcept
 		{
 			return this->_find_first_of(data(), size(), &ch, self_idx, 1);
 		}
@@ -970,32 +973,32 @@ namespace mpd {
 		template<class T, std::enable_if_t <
 			std::is_convertible_v<const T&, std::basic_string_view<charT>>
 			&& !std::is_convertible_v<const T&, const CharT* >>= 0>
-			std::size_t find_first_of(const T& other, std::size_t self_idx = 0) const noexcept(overflow_throws)
+			std::size_t find_first_of(const T& other, std::size_t self_idx = 0) const noexcept
 		{
 			std::basic_string_view<charT, traits_type> view(src);
 			return this->_find_first_of(data(), size(), view.data(), self_idx, view.size());
 		}
 #else
 		template<class alloc>
-		std::size_t find_first_of(const std::basic_string<charT, traits_type, alloc>& other, std::size_t self_idx = 0) const noexcept(overflow_throws)
+		std::size_t find_first_of(const std::basic_string<charT, traits_type, alloc>& other, std::size_t self_idx = 0) const noexcept
 		{
 			return this->_find_first_of(data(), size(), other.data(), self_idx, other.size());
 		}
 #endif
 		template<std::size_t other_max, overflow_behavior_t other_overflow>
-		std::size_t find_first_not_of(const small_basic_string<charT, other_max, other_overflow>& other, std::size_t self_idx = 0) const noexcept(overflow_throws)
+		std::size_t find_first_not_of(const small_basic_string<charT, other_max, other_overflow>& other, std::size_t self_idx = 0) const noexcept
 		{
 			return this->_find_first_not_of(data(), size(), other.data(), self_idx, other.size());
 		}
-		std::size_t find_first_not_of(const charT* other, std::size_t self_idx, std::size_t count) const noexcept(overflow_throws)
+		std::size_t find_first_not_of(const charT* other, std::size_t self_idx, std::size_t count) const noexcept
 		{
 			return this->_find_first_not_of(data(), size(), other, self_idx, count);
 		}
-		std::size_t find_first_not_of(const charT* other, std::size_t self_idx = 0) const noexcept(overflow_throws)
+		std::size_t find_first_not_of(const charT* other, std::size_t self_idx = 0) const noexcept
 		{
 			return this->_find_first_not_of(data(), size(), other, self_idx, strnlen_s_algorithm(other, size() + 1));
 		}
-		std::size_t find_first_not_of(charT* ch, std::size_t self_idx = 0) const noexcept(overflow_throws)
+		std::size_t find_first_not_of(charT* ch, std::size_t self_idx = 0) const noexcept
 		{
 			return this->_find_first_not_of(data(), size(), &ch, self_idx, 1);
 		}
@@ -1003,32 +1006,32 @@ namespace mpd {
 		template<class T, std::enable_if_t <
 			std::is_convertible_v<const T&, std::basic_string_view<charT>>
 			&& !std::is_convertible_v<const T&, const CharT* >>= 0>
-			std::size_t find_first_not_of(const T& other, std::size_t self_idx = 0) const noexcept(overflow_throws)
+			std::size_t find_first_not_of(const T& other, std::size_t self_idx = 0) const noexcept
 		{
 			std::basic_string_view<charT, traits_type> view(src);
 			return this->_find_first_not_of(data(), size(), view.data(), self_idx, view.size());
 		}
 #else
 		template<class alloc>
-		std::size_t find_first_not_of(const std::basic_string<charT, traits_type, alloc>& other, std::size_t self_idx = 0) const noexcept(overflow_throws)
+		std::size_t find_first_not_of(const std::basic_string<charT, traits_type, alloc>& other, std::size_t self_idx = 0) const noexcept
 		{
 			return this->_find_first_not_of(data(), size(), other.data(), self_idx, other.size());
 		}
 #endif
 		template<std::size_t other_max, overflow_behavior_t other_overflow>
-		std::size_t find_last_of(const small_basic_string<charT, other_max, other_overflow>& other, std::size_t self_idx = 0) const noexcept(overflow_throws)
+		std::size_t find_last_of(const small_basic_string<charT, other_max, other_overflow>& other, std::size_t self_idx = npos) const noexcept
 		{
 			return this->_find_last_of(data(), size(), other.data(), self_idx, other.size());
 		}
-		std::size_t find_last_of(const charT* other, std::size_t self_idx, std::size_t count) const noexcept(overflow_throws)
+		std::size_t find_last_of(const charT* other, std::size_t self_idx, std::size_t count) const noexcept
 		{
 			return this->_find_last_of(data(), size(), other, self_idx, count);
 		}
-		std::size_t find_last_of(const charT* other, std::size_t self_idx = 0) const noexcept(overflow_throws)
+		std::size_t find_last_of(const charT* other, std::size_t self_idx = npos) const noexcept
 		{
 			return this->_find_last_of(data(), size(), other, self_idx, strnlen_s_algorithm(other, size() + 1));
 		}
-		std::size_t find_last_of(charT* ch, std::size_t self_idx = 0) const noexcept(overflow_throws)
+		std::size_t find_last_of(charT* ch, std::size_t self_idx = npos) const noexcept
 		{
 			return this->_find_last_of(data(), size(), &ch, self_idx, 1);
 		}
@@ -1036,32 +1039,32 @@ namespace mpd {
 		template<class T, std::enable_if_t <
 			std::is_convertible_v<const T&, std::basic_string_view<charT>>
 			&& !std::is_convertible_v<const T&, const CharT* >>= 0>
-			std::size_t find_last_of(const T& other, std::size_t self_idx = 0) const noexcept(overflow_throws)
+			std::size_t find_last_of(const T& other, std::size_t self_idx = npos) const noexcept
 		{
 			std::basic_string_view<charT, traits_type> view(src);
 			return this->_find_last_of(data(), size(), view.data(), self_idx, view.size());
 		}
 #else
 		template<class alloc>
-		std::size_t find_last_of(const std::basic_string<charT, traits_type, alloc>& other, std::size_t self_idx = 0) const noexcept(overflow_throws)
+		std::size_t find_last_of(const std::basic_string<charT, traits_type, alloc>& other, std::size_t self_idx = npos) const noexcept
 		{
 			return this->_find_last_of(data(), size(), other.data(), self_idx, other.size());
 		}
 #endif
 		template<std::size_t other_max, overflow_behavior_t other_overflow>
-		std::size_t find_last_not_of(const small_basic_string<charT, other_max, other_overflow>& other, std::size_t self_idx = 0) const noexcept(overflow_throws)
+		std::size_t find_last_not_of(const small_basic_string<charT, other_max, other_overflow>& other, std::size_t self_idx = npos) const noexcept
 		{
 			return this->_find_last_not_of(data(), size(), other.data(), self_idx, other.size());
 		}
-		std::size_t find_last_not_of(const charT* other, std::size_t self_idx, std::size_t count) const noexcept(overflow_throws)
+		std::size_t find_last_not_of(const charT* other, std::size_t self_idx, std::size_t count) const noexcept
 		{
 			return this->_find_last_not_of(data(), size(), other, self_idx, count);
 		}
-		std::size_t find_last_not_of(const charT* other, std::size_t self_idx = 0) const noexcept(overflow_throws)
+		std::size_t find_last_not_of(const charT* other, std::size_t self_idx = npos) const noexcept
 		{
 			return this->_find_last_not_of(data(), size(), other, self_idx, strnlen_s_algorithm(other, size() + 1));
 		}
-		std::size_t find_last_not_of(charT* ch, std::size_t self_idx = 0) const noexcept(overflow_throws)
+		std::size_t find_last_not_of(charT* ch, std::size_t self_idx = npos) const noexcept
 		{
 			return this->_find_last_not_of(data(), size(), &ch, self_idx, 1);
 		}
@@ -1069,19 +1072,19 @@ namespace mpd {
 		template<class T, std::enable_if_t <
 			std::is_convertible_v<const T&, std::basic_string_view<charT>>
 			&& !std::is_convertible_v<const T&, const CharT* >>= 0>
-			std::size_t find_last_not_of(const T& other, std::size_t self_idx = 0) const noexcept(overflow_throws)
+			std::size_t find_last_not_of(const T& other, std::size_t self_idx = npos) const noexcept
 		{
 			std::basic_string_view<charT, traits_type> view(src);
 			return this->_find_last_not_of(data(), size(), view.data(), self_idx, view.size());
 		}
 #else
 		template<class alloc>
-		std::size_t find_last_not_of(const std::basic_string<charT, traits_type, alloc>& other, std::size_t self_idx = 0) const noexcept(overflow_throws)
+		std::size_t find_last_not_of(const std::basic_string<charT, traits_type, alloc>& other, std::size_t self_idx = npos) const noexcept
 		{
 			return this->_find_last_not_of(data(), size(), other.data(), self_idx, other.size());
 		}
 #endif
-};
+	};
 #define MPD_SSTRING_ONE_TEMPLATE template<class charT, std::size_t max_len, mpd::overflow_behavior_t behavior>
 #define MPD_SSTRING_ONE_AND_STDSTRING_TEMPLATE template<class charT, std::size_t max_len, mpd::overflow_behavior_t behavior, class alloc>
 #define MPD_SSTRING_TWO_TEMPLATE template<class charT, std::size_t max_len, std::size_t other_len, mpd::overflow_behavior_t behavior, mpd::overflow_behavior_t other_behavior>
