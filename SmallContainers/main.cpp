@@ -287,6 +287,9 @@ int main() {
 	test_mutation(L"abd", erase_if(v, pred));
 	test_mutation(L"lmnop", istream(L"lmnopq") >> v);
 	test_mutation(L"lmno", istream(L"lmno") >> v);
-	test_mutation(L"abcd", { ostream_t out; out << v; v = out.str(); })
+	test_mutation(L"abcd", { ostream_t out; out << v; v = out.str(); });
+	test_mutation(L"lmnop", getline(istream(L"lmnopq"), v));
+	test_mutation(L"lmno", getline(istream(L"lmno"), v));
+	test_mutation(L"lmn", getline(istream(L"lmnopq"), v, L'o'));
 	return 0;
 }

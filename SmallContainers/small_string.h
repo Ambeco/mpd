@@ -302,6 +302,10 @@ namespace mpd {
 			in.width(0);
 			return i;
 		}
+		static MPD_NOINLINE(std::size_t) _getline(charT* buffer, std::size_t before_size, std::size_t max_len, std::basic_istream<charT, std::char_traits<charT>>& in, charT delim) {
+			in.getline(buffer, before_size + 1, delim);
+			return in.gcount() -(in.good() ? 1 : 0);
+		}
 	};
 	template<class charT, std::size_t max_len, overflow_behavior_t overflow_behavior = overflow_behavior_t::exception>
 	class small_basic_string : private small_basic_string_helper<charT, overflow_behavior> {
@@ -1273,9 +1277,33 @@ namespace mpd {
 		return out << str.data();
 	}
 	MPD_SSTRING_ONE_TEMPLATE
-	std::basic_istream<charT, std::char_traits<charT>>& operator>>(std::basic_istream<charT, std::char_traits<charT>>& in, small_basic_string<charT, max_len, behavior>& str) {
+		std::basic_istream<charT, std::char_traits<charT>>& operator>>(std::basic_istream<charT, std::char_traits<charT>>& in, small_basic_string<charT, max_len, behavior>& str) {
 		str.resize(max_len);
-		str.resize(small_basic_string_helper<charT, behavior>::_istream(str.data(), str.size(), max_len, in)); 
+		str.resize(small_basic_string_helper<charT, behavior>::_istream(str.data(), str.size(), max_len, in));
+		return in;
+	}
+	MPD_SSTRING_ONE_TEMPLATE
+		std::basic_istream<charT, std::char_traits<charT>>& getline(std::basic_istream<charT, std::char_traits<charT>>& in, small_basic_string<charT, max_len, behavior>& str) {
+		str.resize(max_len);
+		str.resize(small_basic_string_helper<charT, behavior>::_getline(str.data(), str.size(), max_len, in), '\n');
+		return in;
+	}
+	MPD_SSTRING_ONE_TEMPLATE
+		std::basic_istream<charT, std::char_traits<charT>>& getline(std::basic_istream<charT, std::char_traits<charT>>&& in, small_basic_string<charT, max_len, behavior>& str) {
+		str.resize(max_len);
+		str.resize(small_basic_string_helper<charT, behavior>::_getline(str.data(), str.size(), max_len, in, '\n'));
+		return in;
+	}
+	MPD_SSTRING_ONE_TEMPLATE
+		std::basic_istream<charT, std::char_traits<charT>>& getline(std::basic_istream<charT, std::char_traits<charT>>& in, small_basic_string<charT, max_len, behavior>& str, charT delim) {
+		str.resize(max_len);
+		str.resize(small_basic_string_helper<charT, behavior>::_getline(str.data(), str.size(), max_len, in, delim));
+		return in;
+	}
+	MPD_SSTRING_ONE_TEMPLATE
+		std::basic_istream<charT, std::char_traits<charT>>& getline(std::basic_istream<charT, std::char_traits<charT>>&& in, small_basic_string<charT, max_len, behavior>& str, charT delim) {
+		str.resize(max_len);
+		str.resize(small_basic_string_helper<charT, behavior>::_getline(str.data(), str.size(), max_len, in, delim));
 		return in;
 	}
 
