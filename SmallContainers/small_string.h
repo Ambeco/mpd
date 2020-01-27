@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <array>
 #include <iostream>
+#include <limits>
 #include <locale>
 #include <memory>
 #include <string>
@@ -95,10 +96,10 @@ namespace mpd {
 #else
 #define MPD_NOINLINE(T)	T __attribute__((noinline))
 #endif
-	//small_basic_string_helper exists to shrink binary code so that all small_strings use the same binary code regardless of their length
+	//small_basic_string_impl exists to shrink binary code so that all small_strings use the same binary code regardless of their length
 	//Also most calls pass 'const charT*' iterators, again to shrink the binary code. 
 	template<class charT, overflow_behavior_t overflow_behavior>
-	struct small_basic_string_helper {
+	struct small_basic_string_impl {
 		using traits_type = std::char_traits<charT>;
 		static const bool overflow_throws = overflow_behavior != overflow_behavior_t::exception;
 		static const std::size_t npos = std::basic_string<charT>::npos;
@@ -308,8 +309,8 @@ namespace mpd {
 		}
 	};
 	template<class charT, std::size_t max_len, overflow_behavior_t overflow_behavior = overflow_behavior_t::exception>
-	class small_basic_string : private small_basic_string_helper<charT, overflow_behavior> {
-		static_assert(max_len < CHAR_MAX, "small_string requires a length of less than CHAR_MAX");
+	class small_basic_string : private small_basic_string_impl<charT, overflow_behavior> {
+		static_assert(max_len < UCHAR_MAX, "small_string requires a length of less than UCHAR_MAX");
 		using buffer_t = std::array<charT, max_len + 1>;
 		static const bool overflow_throws = overflow_behavior != overflow_behavior_t::exception;
 
@@ -329,13 +330,13 @@ namespace mpd {
 
 		void set_size(std::size_t len) { assert(len <= max_len);  buffer[len] = charT{}; buffer[max_len] = (charT)(max_len - len); }
 
-		using small_basic_string_helper<charT, overflow_behavior>::max_length_check;
+		using small_basic_string_impl<charT, overflow_behavior>::max_length_check;
 		std::size_t max_length_check(std::size_t given) const noexcept(overflow_throws)
 		{
 			return mpd::max_length_check<overflow_behavior>(given, max_len);
 		}
-		using small_basic_string_helper<charT, overflow_behavior>::index_range_check;
-		using small_basic_string_helper<charT, overflow_behavior>::clamp_max;
+		using small_basic_string_impl<charT, overflow_behavior>::index_range_check;
+		using small_basic_string_impl<charT, overflow_behavior>::clamp_max;
 	public:
 		using traits_type = std::char_traits<charT>;
 		using value_type = charT;
@@ -708,7 +709,7 @@ namespace mpd {
 		}
 #endif
 	private:
-		using small_basic_string_helper<charT, overflow_behavior>::_replace;
+		using small_basic_string_impl<charT, overflow_behavior>::_replace;
 		small_basic_string& _replace(std::size_t dst_idx, std::size_t rem_count, const charT* src_first, std::size_t ins_count) noexcept(overflow_throws)
 		{
 			set_size(this->_replace(data(), size(), max_len, dst_idx, rem_count, src_first, ins_count)); return *this;
@@ -1264,12 +1265,12 @@ namespace mpd {
 	}
 	template<class charT, std::size_t max_len, overflow_behavior_t behavior, class U>
 	void erase(small_basic_string<charT, max_len, behavior>& str, const U& value) noexcept {
-		const charT* end = small_basic_string_helper<charT, behavior>::_remove(str.data(), str.size(), value);
+		const charT* end = small_basic_string_impl<charT, behavior>::_remove(str.data(), str.size(), value);
 		str.resize(end - str.data());
 	}
 	template<class charT, std::size_t max_len, overflow_behavior_t behavior, class Pred>
 	void erase_if(small_basic_string<charT, max_len, behavior>& str, Pred&& predicate) {
-		const charT* end = small_basic_string_helper<charT, behavior>::_remove_if(str.data(), str.size(), std::forward<Pred>(predicate));
+		const charT* end = small_basic_string_impl<charT, behavior>::_remove_if(str.data(), str.size(), std::forward<Pred>(predicate));
 		str.resize(end - str.data());
 	}
 	MPD_SSTRING_ONE_TEMPLATE
@@ -1279,36 +1280,33 @@ namespace mpd {
 	MPD_SSTRING_ONE_TEMPLATE
 		std::basic_istream<charT, std::char_traits<charT>>& operator>>(std::basic_istream<charT, std::char_traits<charT>>& in, small_basic_string<charT, max_len, behavior>& str) {
 		str.resize(max_len);
-		str.resize(small_basic_string_helper<charT, behavior>::_istream(str.data(), str.size(), max_len, in));
+		str.resize(small_basic_string_impl<charT, behavior>::_istream(str.data(), str.size(), max_len, in));
 		return in;
 	}
 	MPD_SSTRING_ONE_TEMPLATE
 		std::basic_istream<charT, std::char_traits<charT>>& getline(std::basic_istream<charT, std::char_traits<charT>>& in, small_basic_string<charT, max_len, behavior>& str) {
 		str.resize(max_len);
-		str.resize(small_basic_string_helper<charT, behavior>::_getline(str.data(), str.size(), max_len, in), '\n');
+		str.resize(small_basic_string_impl<charT, behavior>::_getline(str.data(), str.size(), max_len, in), '\n');
 		return in;
 	}
 	MPD_SSTRING_ONE_TEMPLATE
 		std::basic_istream<charT, std::char_traits<charT>>& getline(std::basic_istream<charT, std::char_traits<charT>>&& in, small_basic_string<charT, max_len, behavior>& str) {
 		str.resize(max_len);
-		str.resize(small_basic_string_helper<charT, behavior>::_getline(str.data(), str.size(), max_len, in, '\n'));
+		str.resize(small_basic_string_impl<charT, behavior>::_getline(str.data(), str.size(), max_len, in, '\n'));
 		return in;
 	}
 	MPD_SSTRING_ONE_TEMPLATE
 		std::basic_istream<charT, std::char_traits<charT>>& getline(std::basic_istream<charT, std::char_traits<charT>>& in, small_basic_string<charT, max_len, behavior>& str, charT delim) {
 		str.resize(max_len);
-		str.resize(small_basic_string_helper<charT, behavior>::_getline(str.data(), str.size(), max_len, in, delim));
+		str.resize(small_basic_string_impl<charT, behavior>::_getline(str.data(), str.size(), max_len, in, delim));
 		return in;
 	}
 	MPD_SSTRING_ONE_TEMPLATE
 		std::basic_istream<charT, std::char_traits<charT>>& getline(std::basic_istream<charT, std::char_traits<charT>>&& in, small_basic_string<charT, max_len, behavior>& str, charT delim) {
 		str.resize(max_len);
-		str.resize(small_basic_string_helper<charT, behavior>::_getline(str.data(), str.size(), max_len, in, delim));
+		str.resize(small_basic_string_impl<charT, behavior>::_getline(str.data(), str.size(), max_len, in, delim));
 		return in;
 	}
-	//stof, stod, stold, to_short_string, to_short_wstring
-	//operator""ss
-	//hash<short_string>, hash<short_wstring>
 
 	template<unsigned char max_len>
 	using small_string = small_basic_string<char, max_len, overflow_behavior_t::exception>;
@@ -1450,6 +1448,89 @@ namespace mpd {
 		if (pos) *pos = ptr - str.data();
 		return ret;
 	}
+	namespace impl {
+		template<overflow_behavior_t behavior, class T, std::size_t max_len = std::numeric_limits<T>::digits10 + 2>
+		small_basic_string<char, max_len, behavior> _to_small_string_int(T value, const char* format) {
+			small_basic_string<char, max_len, behavior> t(max_len, '\0');
+			std::size_t sz = std::snprintf(t.data(), t.size() + 1, format, value);
+			if (sz < 0) throw std::runtime_error("snprintf(" + std::to_string(value) + ") error occured");
+			t.resize(mpd::max_length_check<behavior>(sz, max_len));
+			return t;
+		}
+		template< overflow_behavior_t behavior, class T, std::size_t max_len = std::numeric_limits<T>::digits10 + 2>
+		small_basic_string<wchar_t, max_len, behavior> _to_small_string_int(T value, const wchar_t* format) {
+			small_basic_string<wchar_t, max_len, behavior> t(max_len, L'\0');
+			std::size_t sz = std::swprintf(t.data(), t.size() + 1, format, value);
+			if (sz < 0)  throw std::runtime_error("snprintf(" + std::to_string(value) + ") error occured");
+			t.resize(mpd::max_length_check<behavior>(sz, max_len));
+			return t;
+		}
+		// The max length of a IEEE float is 48 chars, but a double has a whopping 317 chars, and long double is even bigger
+		// obviously, double+ are too big for small_string. So for those we allocate enough chars for float, and 
+		// if the exponent is out of range, we'll just switch to scientific notation :(
+		//max_len = 1/*'-'*/ + (FLT_MAX_10_EXP+1)/*38+1 digits*/ + 1/*'.'*/ + 6/*Default? precision*/ + 1/*\0*/
+		template<overflow_behavior_t behavior, class T, std::size_t max_len = std::numeric_limits<float>::max_exponent10 + 10>
+		small_basic_string<char, max_len, behavior> _to_small_string_float(T value, const char* sm_format, const char* lg_format) {
+			small_basic_string<char, max_len, behavior> t(max_len, '\0');
+			int exp;
+			frexp(value, &exp);
+			const char* format = exp <= std::numeric_limits<float>::max_exponent ? sm_format : lg_format;
+			std::size_t sz = std::snprintf(t.data(), t.size() + 1, format, value);
+			if (sz < 0) throw std::runtime_error("snprintf(" + std::to_string(value) + ") error occured");
+			t.resize(mpd::max_length_check<behavior>(sz, max_len));
+			return t;
+		}
+		template< overflow_behavior_t behavior, class T, std::size_t max_len = std::numeric_limits<float>::max_exponent10 + 10>
+		small_basic_string<wchar_t, max_len, behavior> _to_small_string_float(T value, const wchar_t* sm_format, const wchar_t* lg_format) {
+			small_basic_string<wchar_t, max_len, behavior> t(max_len, L'\0');
+			int exp;
+			frexp(value, &exp);
+			const wchar_t* format = exp <= std::numeric_limits<float>::max_exponent ? sm_format : lg_format;
+			std::size_t sz = std::swprintf(t.data(), t.size() + 1, format, value);
+			if (sz < 0)  throw std::runtime_error("snprintf(" + std::to_string(value) + ") error occured");
+			t.resize(mpd::max_length_check<behavior>(sz, max_len));
+			return t;
+		}
+	}
+	template<overflow_behavior_t behavior= overflow_behavior_t::exception>
+	auto to_small_string(int value) { return impl::_to_small_string_int<behavior>(value, "%d"); }
+	template<overflow_behavior_t behavior = overflow_behavior_t::exception>
+	auto to_small_string(long value) { return impl::_to_small_string_int<behavior>(value, "%ld"); }
+	template<overflow_behavior_t behavior = overflow_behavior_t::exception>
+	auto to_small_string(long long value) { return impl::_to_small_string_int<behavior>(value, "%lld"); }
+	template<overflow_behavior_t behavior = overflow_behavior_t::exception>
+	auto to_small_string(unsigned value) { return impl::_to_small_string_int<behavior>(value, "%u"); }
+	template<overflow_behavior_t behavior = overflow_behavior_t::exception>
+	auto to_small_string(unsigned long value) { return impl::_to_small_string_int<behavior>(value, "%lu"); }
+	template<overflow_behavior_t behavior = overflow_behavior_t::exception>
+	auto to_small_string(unsigned long long value) { return impl::_to_small_string_int<behavior>(value, "%llu"); }
+	template<overflow_behavior_t behavior = overflow_behavior_t::exception>
+	auto to_small_wstring(int value) { return impl::_to_small_string_int<behavior>(value, L"%d"); }
+	template<overflow_behavior_t behavior = overflow_behavior_t::exception>
+	auto to_small_wstring(long value) { return impl::_to_small_string_int<behavior>(value, L"%ld"); }
+	template<overflow_behavior_t behavior = overflow_behavior_t::exception>
+	auto to_small_wstring(long long value) { return impl::_to_small_string_int<behavior>(value, L"%lld"); }
+	template<overflow_behavior_t behavior = overflow_behavior_t::exception>
+	auto to_small_wstring(unsigned value) { return impl::_to_small_string_int<behavior>(value, L"%u"); }
+	template<overflow_behavior_t behavior = overflow_behavior_t::exception>
+	auto to_small_wstring(unsigned long value) { return impl::_to_small_string_int<behavior>(value, L"%lu"); }
+	template<overflow_behavior_t behavior = overflow_behavior_t::exception>
+	auto to_small_wstring(unsigned long long value) { return impl::_to_small_string_int<behavior>(value, L"%llu"); }
+
+	template<overflow_behavior_t behavior = overflow_behavior_t::exception>
+	auto to_small_string(float value) { return impl::_to_small_string_float<behavior>(value, "%f", "%e"); }
+	template<overflow_behavior_t behavior = overflow_behavior_t::exception>
+	auto to_small_string(double value) { return impl::_to_small_string_float<behavior, long double, UCHAR_MAX-1>(value, "%f", "%e"); }
+	template<overflow_behavior_t behavior = overflow_behavior_t::exception>
+	auto to_small_string(long double value) { return impl::_to_small_string_float<behavior, long double, UCHAR_MAX - 1>(value, "%Lf", "%Le"); }
+	template<overflow_behavior_t behavior = overflow_behavior_t::exception>
+	auto to_small_wstring(float value) { return impl::_to_small_string_float<behavior>(value, L"%f", L"%e"); }
+	template<overflow_behavior_t behavior = overflow_behavior_t::exception>
+	auto to_small_wstring(double value) { return impl::_to_small_string_float<behavior, long double, UCHAR_MAX - 1>(value, L"%f", L"%e"); }
+	template<overflow_behavior_t behavior = overflow_behavior_t::exception>
+	auto to_small_wstring(long double value) { return impl::_to_small_string_float<behavior, long double, UCHAR_MAX - 1>(value, L"%Lf", L"%Le"); }
+	//operator""smstr
+	//hash<small_string>, hash<small_wstring>
 }
 namespace std {
 	MPD_SSTRING_ONE_TEMPLATE
