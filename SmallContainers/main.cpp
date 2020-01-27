@@ -112,6 +112,9 @@ int main() {
 	test_mutation(L"xyz,.", v.assign(init_list));
 	test_mutation(L"fghij", v.assign(std_string));
 	test_mutation(L"ABCDE", v.assign(c_out_it{ 'A' }, c_out_it{ 'Z' }));
+	assert(small_lvalue.get_allocator() == std::allocator<char>{});
+	assert(small_lvalue.at(2) == 'n');
+	assert(small_lvalue[2] == 'n');
 	assert(*small_lvalue.begin() == 'l');
 	assert(*small_lvalue.cbegin() == 'l');
 	assert(*--small_lvalue.end() == 'p');
