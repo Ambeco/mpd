@@ -305,7 +305,7 @@ namespace mpd {
 		}
 		static MPD_NOINLINE(std::size_t) _getline(charT* buffer, std::size_t before_size, std::size_t max_len, std::basic_istream<charT, std::char_traits<charT>>& in, charT delim) {
 			in.getline(buffer, before_size + 1, delim);
-			return in.gcount() -(in.good() ? 1 : 0);
+			return in.gcount() - (in.good() ? 1 : 0);
 		}
 	};
 	template<class charT, std::size_t max_len, overflow_behavior_t overflow_behavior = overflow_behavior_t::exception>
@@ -361,20 +361,20 @@ namespace mpd {
 			assign(src_count, src);
 		}
 		template<std::size_t other_max, overflow_behavior_t other_overflow>
-		small_basic_string(const small_basic_string<charT, other_max, other_overflow>& src, std::size_t src_idx = 0) noexcept(overflow_throws) {
+		constexpr small_basic_string(const small_basic_string<charT, other_max, other_overflow>& src, std::size_t src_idx = 0) noexcept(overflow_throws) {
 			set_size(0);
 			assign(src, src_idx);
 		}
 		template<std::size_t other_max, overflow_behavior_t other_overflow>
-		small_basic_string(const small_basic_string<charT, other_max, other_overflow>& src, std::size_t src_idx, std::size_t src_count) noexcept(overflow_throws) {
+		constexpr small_basic_string(const small_basic_string<charT, other_max, other_overflow>& src, std::size_t src_idx, std::size_t src_count) noexcept(overflow_throws) {
 			set_size(0);
 			assign(src, src_idx, src_count);
 		}
-		small_basic_string(const charT* src) noexcept(overflow_throws) {
+		constexpr small_basic_string(const charT* src) noexcept(overflow_throws) {
 			set_size(0);
 			assign(src);
 		}
-		small_basic_string(const charT* src, std::size_t src_count) noexcept(overflow_throws) {
+		constexpr small_basic_string(const charT* src, std::size_t src_count) noexcept(overflow_throws) {
 			set_size(0);
 			assign(src, src_count);
 		}
@@ -383,15 +383,15 @@ namespace mpd {
 			set_size(0);
 			assign(src_first, src_last);
 		}
-		small_basic_string(const small_basic_string& src) noexcept {
+		constexpr small_basic_string(const small_basic_string& src) noexcept {
 			set_size(0);
 			assign(src);
 		}
-		small_basic_string(small_basic_string&& src) noexcept {
+		constexpr small_basic_string(small_basic_string&& src) noexcept {
 			set_size(0);
 			assign(src);
 		}
-		small_basic_string(std::initializer_list<charT> src) noexcept(overflow_throws) {
+		constexpr small_basic_string(std::initializer_list<charT> src) noexcept(overflow_throws) {
 			set_size(0);
 			assign(src);
 		}
@@ -493,8 +493,8 @@ namespace mpd {
 		allocator_type get_allocator() const noexcept { return {}; }
 		reference at(std::size_t src_idx) { return buffer.at(index_range_check(src_idx, size())); }
 		const_reference at(std::size_t src_idx) const { return buffer.at(index_range_check(src_idx, size())); }
-		reference operator[](std::size_t src_idx) noexcept { assert(src_idx > size()); return buffer[src_idx]; }
-		const_reference operator[](std::size_t src_idx) const noexcept { assert(src_idx > size()); return buffer[src_idx]; }
+		reference operator[](std::size_t src_idx) noexcept { assert(src_idx < size()); return buffer[src_idx]; }
+		const_reference operator[](std::size_t src_idx) const noexcept { assert(src_idx < size()); return buffer[src_idx]; }
 		reference front() noexcept { assert(size() > 0); return buffer[0]; }
 		const_reference front() const noexcept { assert(size() > 0); return buffer[0]; }
 		reference back() noexcept { assert(size() > 0); return buffer[size() - 1]; }
@@ -1321,7 +1321,7 @@ namespace mpd {
 	using small_u32string = small_basic_string<std::char32_t, max_len, overflow_behavior_t::exception>;
 #endif
 	template<std::size_t max_len, mpd::overflow_behavior_t behavior>
-	int stoi(const small_basic_string<char, max_len, behavior>& str, std::size_t* pos = 0, int base = 10) 
+	int stoi(const small_basic_string<char, max_len, behavior>& str, std::size_t* pos = 0, int base = 10)
 	{
 		char* ptr = 0;
 		int ret = (int)std::strtol(str.data(), &ptr, base);
@@ -1331,7 +1331,7 @@ namespace mpd {
 	template<std::size_t max_len, mpd::overflow_behavior_t behavior>
 	int stoi(const small_basic_string<wchar_t, max_len, behavior>& str, std::size_t* pos = 0, int base = 10)
 	{
-		wchar_t* ptr=0;
+		wchar_t* ptr = 0;
 		int ret = (int)std::wcstol(str.data(), &ptr, base);
 		if (pos) *pos = ptr - str.data();
 		return ret;
@@ -1492,7 +1492,7 @@ namespace mpd {
 			return t;
 		}
 	}
-	template<overflow_behavior_t behavior= overflow_behavior_t::exception>
+	template<overflow_behavior_t behavior = overflow_behavior_t::exception>
 	auto to_small_string(int value) { return impl::_to_small_string_int<behavior>(value, "%d"); }
 	template<overflow_behavior_t behavior = overflow_behavior_t::exception>
 	auto to_small_string(long value) { return impl::_to_small_string_int<behavior>(value, "%ld"); }
@@ -1516,11 +1516,11 @@ namespace mpd {
 	auto to_small_wstring(unsigned long value) { return impl::_to_small_string_int<behavior>(value, L"%lu"); }
 	template<overflow_behavior_t behavior = overflow_behavior_t::exception>
 	auto to_small_wstring(unsigned long long value) { return impl::_to_small_string_int<behavior>(value, L"%llu"); }
-
+	//NOTE: large double and long double may render as scientific notation unexpectedly, since they won't fit otherwise
 	template<overflow_behavior_t behavior = overflow_behavior_t::exception>
 	auto to_small_string(float value) { return impl::_to_small_string_float<behavior>(value, "%f", "%e"); }
 	template<overflow_behavior_t behavior = overflow_behavior_t::exception>
-	auto to_small_string(double value) { return impl::_to_small_string_float<behavior, long double, UCHAR_MAX-1>(value, "%f", "%e"); }
+	auto to_small_string(double value) { return impl::_to_small_string_float<behavior, long double, UCHAR_MAX - 1>(value, "%f", "%e"); }
 	template<overflow_behavior_t behavior = overflow_behavior_t::exception>
 	auto to_small_string(long double value) { return impl::_to_small_string_float<behavior, long double, UCHAR_MAX - 1>(value, "%Lf", "%Le"); }
 	template<overflow_behavior_t behavior = overflow_behavior_t::exception>
@@ -1529,14 +1529,29 @@ namespace mpd {
 	auto to_small_wstring(double value) { return impl::_to_small_string_float<behavior, long double, UCHAR_MAX - 1>(value, L"%f", L"%e"); }
 	template<overflow_behavior_t behavior = overflow_behavior_t::exception>
 	auto to_small_wstring(long double value) { return impl::_to_small_string_float<behavior, long double, UCHAR_MAX - 1>(value, L"%Lf", L"%Le"); }
-	//operator""smstr
-	//hash<small_string>, hash<small_wstring>
+	inline namespace literals {
+		//http://www.open-std.org/jtc1/SC22/wg21/docs/papers/2017/p0424r1.pdf
+		//template <typename CharT, CharT const* str, std::size_t length>
+		//small_basic_string<CharT, length, mpd::overflow_behavior_t::exception> operator ""_smstr() -> {
+		//	return { s, len };
+		//}
+	}
 }
 namespace std {
 	MPD_SSTRING_ONE_TEMPLATE
 		void swap(mpd::small_basic_string<charT, max_len, behavior>& lhs, mpd::small_basic_string<charT, max_len, behavior>& rhs) noexcept {
 		lhs.swap(rhs);
 	}
+	MPD_SSTRING_ONE_TEMPLATE
+		struct hash<mpd::small_basic_string<charT, max_len, behavior>> {
+		std::size_t operator()(const mpd::small_basic_string<charT, max_len, behavior>& val) const noexcept {
+			std::hash<charT> subhasher;
+			std::size_t ret = 0x9e3779b9;
+			for (int i = 0; i < val.size(); i++)
+				ret ^= subhasher(val[i]) + 0x9e3779b9 + (ret << 6) + (ret >> 2);
+			return ret;
+		}
+	};
 }
 
 #undef MPD_NOINLINE

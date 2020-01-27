@@ -73,6 +73,7 @@ int main() {
 	test_string_t small_lvalue = L"lmnopq";
 	bigger_string_t large_lvalue = L"rstuvw";
 	std::initializer_list<wchar_t> init_list = { 'x', 'y', 'z', ',', '.', '/' };
+	std::hash<test_string_t> hasher;
 
 	test_def_ctor();
 	test_ctor(L"aaaa", 4, L'a');
@@ -334,5 +335,11 @@ int main() {
 	assert(mpd::to_small_wstring((double)-FLT_MAX) == std::to_wstring((double)-FLT_MAX));
 	assert(mpd::to_small_wstring((long double)-FLT_MIN) == std::to_wstring((long double)-FLT_MIN));
 	assert(mpd::to_small_wstring((long double)-FLT_MAX) == std::to_wstring((long double)-FLT_MAX));
+	//using namespace mpd::literals;
+	//assert("abcd"_smstr == "abcd");
+	//assert(L"abcd"_smstr == L"abcd");
+	assert(hasher(L"") == 0x9e3779b9ull);
+	assert(hasher(L"ab") == 4133876243914441702ull);
+	assert(hasher(L"ba") == 4389997032588314883ull);
 	return 0;
 }
