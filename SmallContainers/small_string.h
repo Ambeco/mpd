@@ -77,7 +77,7 @@ namespace mpd {
 			return given;
 		}
 		template<>
-		std::size_t max_length_check<overflow_behavior_t::assert_and_truncate>(std::size_t given, std::size_t maximum) {
+		std::size_t max_length_check<overflow_behavior_t::assert_and_truncate>(std::size_t given, std::size_t maximum) noexcept {
 			if (given > maximum) {
 				assert(false);
 				return maximum;
@@ -85,7 +85,7 @@ namespace mpd {
 			return given;
 		}
 		template<>
-		std::size_t max_length_check<overflow_behavior_t::silently_truncate>(std::size_t given, std::size_t maximum) {
+		std::size_t max_length_check<overflow_behavior_t::silently_truncate>(std::size_t given, std::size_t maximum) noexcept {
 			if (given > maximum) {
 				return maximum;
 			}
@@ -112,7 +112,7 @@ namespace mpd {
 				if (given > maximum) throw std::out_of_range(std::to_string(given) + " is an invalid index");
 				return given;
 			}
-			static std::size_t clamp_max(std::size_t given, std::size_t maximum) {
+			static std::size_t clamp_max(std::size_t given, std::size_t maximum) noexcept {
 				if (given > maximum) return maximum;
 				return given;
 			}
@@ -231,8 +231,14 @@ namespace mpd {
 				std::size_t end_count = max_length_check(max_end_count, max_len - post_ins_index);
 				return post_ins_index + end_count;
 			}
-			static MPD_NOINLINE(int) _compare(const charT* buffer, std::size_t before_size, std::size_t self_idx, std::size_t self_count, const charT* other, std::size_t other_count) noexcept(overflow_throws) {
+			static int _compare(const charT* buffer, std::size_t before_size, const charT* other, std::size_t other_count) noexcept {
+				return _compare_unchecked(buffer, before_size, 0, before_size, other, other_count);
+			}
+			static int _compare(const charT* buffer, std::size_t before_size, std::size_t self_idx, std::size_t self_count, const charT* other, std::size_t other_count) noexcept(overflow_throws) {
 				self_idx = index_range_check(self_idx, before_size);
+				return _compare_unchecked(buffer, before_size, self_idx, self_count, other, other_count);
+			}
+			static MPD_NOINLINE(int) _compare_unchecked(const charT* buffer, std::size_t before_size, std::size_t self_idx, std::size_t self_count, const charT* other, std::size_t other_count) noexcept {
 				self_count = std::min(self_count, before_size - self_idx);
 				std::size_t cmp_count = std::min(self_count, other_count);
 				int r = traits_type::compare(buffer + self_idx, other, cmp_count);
@@ -295,14 +301,14 @@ namespace mpd {
 				return npos;
 			}
 			template<class U>
-			static MPD_NOINLINE(const charT*) _remove(charT* buffer, std::size_t before_size, const U& value) {
+			static MPD_NOINLINE(const charT*) _remove(charT* buffer, std::size_t before_size, const U& value) noexcept {
 				return std::remove(buffer, buffer + before_size, value);
 			}
 			template<class Pred>
-			static MPD_NOINLINE(const charT*) _remove_if(charT* buffer, std::size_t before_size, Pred&& predicate) {
+			static MPD_NOINLINE(const charT*) _remove_if(charT* buffer, std::size_t before_size, Pred&& predicate) noexcept {
 				return std::remove_if(buffer, buffer + before_size, std::forward<Pred>(predicate));
 			}
-			static MPD_NOINLINE(std::size_t) _istream(charT* buffer, std::size_t before_size, std::size_t max_len, std::basic_istream<charT, std::char_traits<charT>>& in) {
+			static MPD_NOINLINE(std::size_t) _istream(charT* buffer, std::size_t before_size, std::size_t max_len, std::basic_istream<charT, std::char_traits<charT>>& in) noexcept(overflow_throws) {
 				const typename std::basic_istream<charT, std::char_traits<charT>>::sentry sentry(in);
 				auto loc = in.getloc();
 				std::size_t i;
@@ -315,7 +321,7 @@ namespace mpd {
 				in.width(0);
 				return i;
 			}
-			static MPD_NOINLINE(std::size_t) _getline(charT* buffer, std::size_t before_size, std::size_t max_len, std::basic_istream<charT, std::char_traits<charT>>& in, charT delim) {
+			static MPD_NOINLINE(std::size_t) _getline(charT* buffer, std::size_t before_size, std::size_t max_len, std::basic_istream<charT, std::char_traits<charT>>& in, charT delim) noexcept(overflow_throws) {
 				in.getline(buffer, before_size + 1, delim);
 				return in.gcount() - (in.good() ? 1 : 0);
 			}
@@ -841,7 +847,7 @@ namespace mpd {
 		template<std::size_t other_max, overflow_behavior_t other_overflow>
 		int compare(const small_basic_string<charT, other_max, other_overflow>& other) const noexcept
 		{
-			return this->_compare(data(), size(), 0, size(), other.data(), other.size());
+			return this->_compare(data(), size(), other.data(), other.size());
 		}
 		template<std::size_t other_max, overflow_behavior_t other_overflow>
 		int compare(std::size_t self_idx, std::size_t self_count, const small_basic_string<charT, other_max, other_overflow>& other) const noexcept(overflow_throws)
@@ -874,7 +880,7 @@ namespace mpd {
 			int compare(const T& other) const noexcept
 		{
 			std::basic_string_view<charT, traits_type> view(src);
-			return this->_compare(data(), size(), 0, size(), view.data(), view.size());
+			return this->_compare(data(), size(), view.data(), view.size());
 		}
 		template<class T, std::enable_if_t <
 			std::is_convertible_v<const T&, std::basic_string_view<charT>>
@@ -898,7 +904,7 @@ namespace mpd {
 		template<class alloc>
 		int compare(const std::basic_string<charT, traits_type, alloc>& other) const noexcept
 		{
-			return this->_compare(data(), size(), 0, size(), other.data(), other.size());
+			return this->_compare(data(), size(), other.data(), other.size());
 		}
 		template<class alloc>
 		int compare(std::size_t self_idx, std::size_t self_count, const std::basic_string<charT, traits_type, alloc>& other, std::size_t other_idx = 0, std::size_t other_count = npos) const noexcept(overflow_throws)
@@ -1263,7 +1269,7 @@ namespace mpd {
 	}
 	MPD_SSTRING_ONE_AND_STDSTRING_TEMPLATE
 		bool operator>=(const std::basic_string<charT, std::char_traits<charT>, alloc>& lhs, const small_basic_string<charT, max_len, behavior>& rhs) noexcept {
-		return lhs.compare(0, lhs.size(), rhs.data(), rhs.size()) >= 0;
+		return lhs.compare(rhs.data(), rhs.size()) >= 0;
 	}
 	template<class charT, std::size_t max_len, overflow_behavior_t behavior, class U>
 	void erase(small_basic_string<charT, max_len, behavior>& str, const U& value) noexcept {
@@ -1271,40 +1277,40 @@ namespace mpd {
 		str.resize(end - str.data());
 	}
 	template<class charT, std::size_t max_len, overflow_behavior_t behavior, class Pred>
-	void erase_if(small_basic_string<charT, max_len, behavior>& str, Pred&& predicate) {
+	void erase_if(small_basic_string<charT, max_len, behavior>& str, Pred&& predicate) noexcept {
 		const charT* end = impl::small_basic_string_impl<charT, behavior>::_remove_if(str.data(), str.size(), std::forward<Pred>(predicate));
 		str.resize(end - str.data());
 	}
 	MPD_SSTRING_ONE_TEMPLATE
-		std::basic_ostream<charT, std::char_traits<charT>>& operator<<(std::basic_ostream<charT, std::char_traits<charT>>& out, const small_basic_string<charT, max_len, behavior>& str) {
+		std::basic_ostream<charT, std::char_traits<charT>>& operator<<(std::basic_ostream<charT, std::char_traits<charT>>& out, const small_basic_string<charT, max_len, behavior>& str) noexcept {
 		return out << str.data();
 	}
 	MPD_SSTRING_ONE_TEMPLATE
-		std::basic_istream<charT, std::char_traits<charT>>& operator>>(std::basic_istream<charT, std::char_traits<charT>>& in, small_basic_string<charT, max_len, behavior>& str) {
+		std::basic_istream<charT, std::char_traits<charT>>& operator>>(std::basic_istream<charT, std::char_traits<charT>>& in, small_basic_string<charT, max_len, behavior>& str) noexcept(behavior != overflow_behavior_t::exception) {
 		str.resize(max_len);
 		str.resize(impl::small_basic_string_impl<charT, behavior>::_istream(str.data(), str.size(), max_len, in));
 		return in;
 	}
 	MPD_SSTRING_ONE_TEMPLATE
-		std::basic_istream<charT, std::char_traits<charT>>& getline(std::basic_istream<charT, std::char_traits<charT>>& in, small_basic_string<charT, max_len, behavior>& str) {
+		std::basic_istream<charT, std::char_traits<charT>>& getline(std::basic_istream<charT, std::char_traits<charT>>& in, small_basic_string<charT, max_len, behavior>& str) noexcept(behavior != overflow_behavior_t::exception) {
 		str.resize(max_len);
 		str.resize(impl::small_basic_string_impl<charT, behavior>::_getline(str.data(), str.size(), max_len, in), '\n');
 		return in;
 	}
 	MPD_SSTRING_ONE_TEMPLATE
-		std::basic_istream<charT, std::char_traits<charT>>& getline(std::basic_istream<charT, std::char_traits<charT>>&& in, small_basic_string<charT, max_len, behavior>& str) {
+		std::basic_istream<charT, std::char_traits<charT>>& getline(std::basic_istream<charT, std::char_traits<charT>>&& in, small_basic_string<charT, max_len, behavior>& str) noexcept(behavior != overflow_behavior_t::exception) {
 		str.resize(max_len);
 		str.resize(impl::small_basic_string_impl<charT, behavior>::_getline(str.data(), str.size(), max_len, in, '\n'));
 		return in;
 	}
 	MPD_SSTRING_ONE_TEMPLATE
-		std::basic_istream<charT, std::char_traits<charT>>& getline(std::basic_istream<charT, std::char_traits<charT>>& in, small_basic_string<charT, max_len, behavior>& str, charT delim) {
+		std::basic_istream<charT, std::char_traits<charT>>& getline(std::basic_istream<charT, std::char_traits<charT>>& in, small_basic_string<charT, max_len, behavior>& str, charT delim) noexcept(behavior != overflow_behavior_t::exception) {
 		str.resize(max_len);
 		str.resize(impl::small_basic_string_impl<charT, behavior>::_getline(str.data(), str.size(), max_len, in, delim));
 		return in;
 	}
 	MPD_SSTRING_ONE_TEMPLATE
-		std::basic_istream<charT, std::char_traits<charT>>& getline(std::basic_istream<charT, std::char_traits<charT>>&& in, small_basic_string<charT, max_len, behavior>& str, charT delim) {
+		std::basic_istream<charT, std::char_traits<charT>>& getline(std::basic_istream<charT, std::char_traits<charT>>&& in, small_basic_string<charT, max_len, behavior>& str, charT delim) noexcept(behavior != overflow_behavior_t::exception) {
 		str.resize(max_len);
 		str.resize(impl::small_basic_string_impl<charT, behavior>::_getline(str.data(), str.size(), max_len, in, delim));
 		return in;
@@ -1323,7 +1329,7 @@ namespace mpd {
 	using small_u32string = small_basic_string<std::char32_t, max_len, overflow_behavior_t::exception>;
 #endif
 	template<std::size_t max_len, mpd::overflow_behavior_t behavior>
-	int stoi(const small_basic_string<char, max_len, behavior>& str, std::size_t* pos = 0, int base = 10)
+	int stoi(const small_basic_string<char, max_len, behavior>& str, std::size_t* pos = 0, int base = 10) noexcept
 	{
 		char* ptr = 0;
 		int ret = (int)std::strtol(str.data(), &ptr, base);
@@ -1331,7 +1337,7 @@ namespace mpd {
 		return ret;
 	}
 	template<std::size_t max_len, mpd::overflow_behavior_t behavior>
-	int stoi(const small_basic_string<wchar_t, max_len, behavior>& str, std::size_t* pos = 0, int base = 10)
+	int stoi(const small_basic_string<wchar_t, max_len, behavior>& str, std::size_t* pos = 0, int base = 10) noexcept
 	{
 		wchar_t* ptr = 0;
 		int ret = (int)std::wcstol(str.data(), &ptr, base);
@@ -1339,7 +1345,7 @@ namespace mpd {
 		return ret;
 	}
 	template<std::size_t max_len, mpd::overflow_behavior_t behavior>
-	long stol(const small_basic_string<char, max_len, behavior>& str, std::size_t* pos = 0, int base = 10)
+	long stol(const small_basic_string<char, max_len, behavior>& str, std::size_t* pos = 0, int base = 10) noexcept
 	{
 		char* ptr = 0;
 		long ret = std::strtol(str.data(), &ptr, base);
@@ -1347,7 +1353,7 @@ namespace mpd {
 		return ret;
 	}
 	template<std::size_t max_len, mpd::overflow_behavior_t behavior>
-	long stol(const small_basic_string<wchar_t, max_len, behavior>& str, std::size_t* pos = 0, int base = 10)
+	long stol(const small_basic_string<wchar_t, max_len, behavior>& str, std::size_t* pos = 0, int base = 10) noexcept
 	{
 		wchar_t* ptr = 0;
 		long ret = std::wcstol(str.data(), &ptr, base);
@@ -1355,7 +1361,7 @@ namespace mpd {
 		return ret;
 	}
 	template<std::size_t max_len, mpd::overflow_behavior_t behavior>
-	long long stoll(const small_basic_string<char, max_len, behavior>& str, std::size_t* pos = 0, int base = 10)
+	long long stoll(const small_basic_string<char, max_len, behavior>& str, std::size_t* pos = 0, int base = 10) noexcept
 	{
 		char* ptr = 0;
 		long long ret = std::strtoll(str.data(), &ptr, base);
@@ -1363,7 +1369,7 @@ namespace mpd {
 		return ret;
 	}
 	template<std::size_t max_len, mpd::overflow_behavior_t behavior>
-	long long stoll(const small_basic_string<wchar_t, max_len, behavior>& str, std::size_t* pos = 0, int base = 10)
+	long long stoll(const small_basic_string<wchar_t, max_len, behavior>& str, std::size_t* pos = 0, int base = 10) noexcept
 	{
 		wchar_t* ptr = 0;
 		long long ret = std::wcstoll(str.data(), &ptr, base);
@@ -1371,7 +1377,7 @@ namespace mpd {
 		return ret;
 	}
 	template<std::size_t max_len, mpd::overflow_behavior_t behavior>
-	unsigned long stoul(const small_basic_string<char, max_len, behavior>& str, std::size_t* pos = 0, int base = 10)
+	unsigned long stoul(const small_basic_string<char, max_len, behavior>& str, std::size_t* pos = 0, int base = 10) noexcept
 	{
 		char* ptr = 0;
 		unsigned long ret = std::strtoul(str.data(), &ptr, base);
@@ -1379,7 +1385,7 @@ namespace mpd {
 		return ret;
 	}
 	template<std::size_t max_len, mpd::overflow_behavior_t behavior>
-	unsigned long stoul(const small_basic_string<wchar_t, max_len, behavior>& str, std::size_t* pos = 0, int base = 10)
+	unsigned long stoul(const small_basic_string<wchar_t, max_len, behavior>& str, std::size_t* pos = 0, int base = 10) noexcept
 	{
 		wchar_t* ptr = 0;
 		unsigned long ret = std::wcstoul(str.data(), &ptr, base);
@@ -1387,7 +1393,7 @@ namespace mpd {
 		return ret;
 	}
 	template<std::size_t max_len, mpd::overflow_behavior_t behavior>
-	unsigned long long stoull(const small_basic_string<char, max_len, behavior>& str, std::size_t* pos = 0, int base = 10)
+	unsigned long long stoull(const small_basic_string<char, max_len, behavior>& str, std::size_t* pos = 0, int base = 10) noexcept
 	{
 		char* ptr = 0;
 		unsigned long long ret = std::strtoull(str.data(), &ptr, base);
@@ -1395,7 +1401,7 @@ namespace mpd {
 		return ret;
 	}
 	template<std::size_t max_len, mpd::overflow_behavior_t behavior>
-	unsigned long long stoull(const small_basic_string<wchar_t, max_len, behavior>& str, std::size_t* pos = 0, int base = 10)
+	unsigned long long stoull(const small_basic_string<wchar_t, max_len, behavior>& str, std::size_t* pos = 0, int base = 10) noexcept
 	{
 		wchar_t* ptr = 0;
 		unsigned long long ret = std::wcstoull(str.data(), &ptr, base);
@@ -1403,7 +1409,7 @@ namespace mpd {
 		return ret;
 	}
 	template<std::size_t max_len, mpd::overflow_behavior_t behavior>
-	float stof(const small_basic_string<char, max_len, behavior>& str, std::size_t* pos = 0)
+	float stof(const small_basic_string<char, max_len, behavior>& str, std::size_t* pos = 0) noexcept
 	{
 		char* ptr = 0;
 		float ret = std::strtof(str.data(), &ptr);
@@ -1411,7 +1417,7 @@ namespace mpd {
 		return ret;
 	}
 	template<std::size_t max_len, mpd::overflow_behavior_t behavior>
-	float stof(const small_basic_string<wchar_t, max_len, behavior>& str, std::size_t* pos = 0)
+	float stof(const small_basic_string<wchar_t, max_len, behavior>& str, std::size_t* pos = 0) noexcept
 	{
 		wchar_t* ptr = 0;
 		float ret = std::wcstof(str.data(), &ptr);
@@ -1419,7 +1425,7 @@ namespace mpd {
 		return ret;
 	}
 	template<std::size_t max_len, mpd::overflow_behavior_t behavior>
-	double stod(const small_basic_string<char, max_len, behavior>& str, std::size_t* pos = 0)
+	double stod(const small_basic_string<char, max_len, behavior>& str, std::size_t* pos = 0) noexcept
 	{
 		char* ptr = 0;
 		double ret = std::strtod(str.data(), &ptr);
@@ -1427,7 +1433,7 @@ namespace mpd {
 		return ret;
 	}
 	template<std::size_t max_len, mpd::overflow_behavior_t behavior>
-	double stod(const small_basic_string<wchar_t, max_len, behavior>& str, std::size_t* pos = 0)
+	double stod(const small_basic_string<wchar_t, max_len, behavior>& str, std::size_t* pos = 0) noexcept
 	{
 		wchar_t* ptr = 0;
 		double ret = std::wcstod(str.data(), &ptr);
@@ -1435,7 +1441,7 @@ namespace mpd {
 		return ret;
 	}
 	template<std::size_t max_len, mpd::overflow_behavior_t behavior>
-	long double stold(const small_basic_string<char, max_len, behavior>& str, std::size_t* pos = 0)
+	long double stold(const small_basic_string<char, max_len, behavior>& str, std::size_t* pos = 0) noexcept
 	{
 		char* ptr = 0;
 		long double ret = std::strtold(str.data(), &ptr);
@@ -1443,7 +1449,7 @@ namespace mpd {
 		return ret;
 	}
 	template<std::size_t max_len, mpd::overflow_behavior_t behavior>
-	long double stold(const small_basic_string<wchar_t, max_len, behavior>& str, std::size_t* pos = 0)
+	long double stold(const small_basic_string<wchar_t, max_len, behavior>& str, std::size_t* pos = 0) noexcept
 	{
 		wchar_t* ptr = 0;
 		long double ret = std::wcstold(str.data(), &ptr);
