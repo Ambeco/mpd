@@ -192,7 +192,7 @@ namespace mpd {
 				std::size_t new_size = its.second - buffer;
 				return new_size;
 			}
-			static MPD_NOINLINE(void) _copy(charT* buffer, std::size_t before_size, charT* dest, std::size_t src_count, std::size_t src_idx) noexcept {
+			static MPD_NOINLINE(void) _copy(const charT* buffer, std::size_t before_size, charT* dest, std::size_t src_count, std::size_t src_idx) noexcept {
 				src_idx = index_range_check(src_idx, before_size);
 				src_count = std::min(src_count, before_size - src_idx);
 				std::copy_n(buffer + src_idx, src_count, dest);
@@ -643,7 +643,7 @@ namespace mpd {
 			set_size(sz - 1);
 		}
 		small_basic_string& append(std::size_t src_count, charT src) noexcept(overflow_throws) {
-			set_size(_append(data, size(), max_len, src_count, src); return *this;
+			set_size(this->_append(data(), size(), max_len, src_count, src)); return *this;
 		}
 		template<std::size_t other_max, overflow_behavior_t other_overflow>
 		small_basic_string& append(const small_basic_string<charT, other_max, other_overflow>& src) noexcept(overflow_throws) {
@@ -656,7 +656,7 @@ namespace mpd {
 			return append(src.data() + src_idx, src.data() + src_idx + src_count);
 		}
 		small_basic_string& append(const charT* src, size_t src_count) noexcept(overflow_throws) {
-			return append(src, src + src_coutn);
+			return append(src, src + src_count);
 		}
 		small_basic_string& append(const charT* src) noexcept(overflow_throws) {
 			std::size_t src_count = strnlen_s_algorithm(src, max_len - size() + 1);
@@ -820,7 +820,7 @@ namespace mpd {
 			src_count = max_length_check(src_count);
 			std::size_t sz = size();
 			if (src_count > sz)
-				_append(data(), sz, max_len, src_count - sz, src);
+				this->_append(data(), sz, max_len, src_count - sz, src);
 			if (src_count != sz)
 				set_size(src_count);
 		}
@@ -836,7 +836,7 @@ namespace mpd {
 			return { *this, src_idx, count };
 		}
 		std::size_t copy(charT* dest, std::size_t src_count, std::size_t src_idx = 0) const noexcept {
-			this->_copy(data(), size(), dest, src_coutn, src_ix); return src_count;
+			this->_copy(data(), size(), dest, src_count, src_idx); return src_count;
 		}
 		template<std::size_t other_max, overflow_behavior_t other_overflow>
 		int compare(const small_basic_string<charT, other_max, other_overflow>& other) const noexcept
