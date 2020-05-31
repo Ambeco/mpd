@@ -21,12 +21,12 @@ namespace mpd {
 	namespace impl {
 		template<overflow_behavior_t> std::size_t max_length_check(std::size_t given, std::size_t maximum);
 		template<>
-		std::size_t max_length_check<overflow_behavior_t::exception>(std::size_t given, std::size_t maximum) {
+		inline std::size_t max_length_check<overflow_behavior_t::exception>(std::size_t given, std::size_t maximum) {
 			if (given > maximum) throw std::length_error(std::to_string(given) + " overflows small_string");
 			return given;
 		}
 		template<>
-		std::size_t max_length_check<overflow_behavior_t::assert_and_truncate>(std::size_t given, std::size_t maximum) noexcept {
+		inline std::size_t max_length_check<overflow_behavior_t::assert_and_truncate>(std::size_t given, std::size_t maximum) noexcept {
 			if (given > maximum) {
 				assert(false);
 				return maximum;
@@ -34,7 +34,7 @@ namespace mpd {
 			return given;
 		}
 		template<>
-		std::size_t max_length_check<overflow_behavior_t::silently_truncate>(std::size_t given, std::size_t maximum) noexcept {
+		inline std::size_t max_length_check<overflow_behavior_t::silently_truncate>(std::size_t given, std::size_t maximum) noexcept {
 			if (given > maximum) {
 				return maximum;
 			}
@@ -78,15 +78,15 @@ namespace mpd {
 			static MPD_NOINLINE(void) _assign(T* buffer, std::size_t& size, std::size_t max_len, std::size_t src_count, const T& src) noexcept(overflow_throws) {
 				src_count = max_length_check(src_count, max_len);
 				std::fill_n(buffer, size, src);
-				std::uninitialized_fill_n(buffer + size, buffer + src_count, src);
+				std::uninitialized_fill_n(buffer + size, src_count, src);
 				size = src_count;
 			}
 			template<class ForwardIt>
 			static MPD_NOINLINE(void) _assign(T* buffer, std::size_t& size, std::size_t max_len, ForwardIt src_first, ForwardIt src_last, std::forward_iterator_tag) noexcept(overflow_throws) {
 				std::size_t src_count = distance_up_to_n(src_first, src_last, max_len + 1);
 				src_count = max_length_check(src_count, max_len);
-				auto mid = std::copy_n(src_first, size, buffer);
-				src_first = std::uninitialized_copy_n(mid, buffer + src_count, src_first);
+				T* mid = std::copy_n(src_first, size, buffer);
+				std::uninitialized_copy_n(std::next(src_first, size), src_count - size, mid);
 				size = src_count;
 			}
 			template<class InputIt>
@@ -134,14 +134,15 @@ namespace mpd {
 				src_count = insert_move_count + insert_construct_count;
 				std::size_t keep_move_count = size - dst_idx - insert_move_count;
 				std::size_t keep_construct_count = max_length_check(size + src_count, max_len) - insert_construct_count;
-				src_first = std::uninitialized_copy_n(buffer + size, insert_construct_count, src_first);  //WRONG ITEMS These are the first, in the wrong place!
+				std::uninitialized_copy_n(src_first, insert_construct_count, buffer + size);  //WRONG ITEMS These are the first, in the wrong place!
+				std::advance(src_first, insert_construct_count);
 				size += insert_construct_count;
 				uninitialized_move_backward_n(buffer + size, keep_construct_count, buffer + dst_idx + keep_move_count);
 				size += keep_construct_count;
 				move_backward_n(buffer + dst_idx + keep_construct_count, keep_move_count, buffer + dst_idx + insert_construct_count + insert_move_count + keep_move_count);
-				src_first = std::copy_n(buffer + dst_idx, insert_move_count, src_first);
+				std::copy_n(src_first, insert_move_count, buffer + dst_idx);
 			}
-			std::size_t _erase(T* buffer, std::size_t& size, std::size_t max_len, std::size_t idx, std::size_t count) noexcept(overflow_throws) {
+			void _erase(T* buffer, std::size_t& size, std::size_t max_len, std::size_t idx, std::size_t count) noexcept(overflow_throws) {
 				idx = index_range_check(idx, size);
 				count = clamp_max(count, size - idx);
 				std::size_t move_count = size - idx - count;
@@ -149,25 +150,25 @@ namespace mpd {
 				destroy(buffer + size - count, buffer + size);
 				size -= count;
 			}
-			static MPD_NOINLINE(std::size_t) _append(T* buffer, std::size_t& size, std::size_t max_len, std::size_t src_count, do_value_construct) noexcept(overflow_throws) {
+			static MPD_NOINLINE(void) _append(T* buffer, std::size_t& size, std::size_t max_len, std::size_t src_count, do_value_construct) noexcept(overflow_throws) {
 				src_count = max_length_check(src_count, max_len - size);
 				uninitialized_value_construct_n(buffer + size, src_count);
 				size += src_count;
 			}
-			static MPD_NOINLINE(std::size_t) _append(T* buffer, std::size_t& size, std::size_t max_len, std::size_t src_count, T src) noexcept(overflow_throws) {
+			static MPD_NOINLINE(void) _append(T* buffer, std::size_t& size, std::size_t max_len, std::size_t src_count, T src) noexcept(overflow_throws) {
 				src_count = max_length_check(src_count, max_len - size);
 				std::uninitialized_fill_n(buffer + size, src_count, src);
 				size += src_count;
 			}
 			template<class InputIt>
-			static MPD_NOINLINE(std::size_t) _append(T* buffer, std::size_t& size, std::size_t max_len, InputIt src_first, InputIt src_last, std::forward_iterator_tag) noexcept(overflow_throws) {
+			static MPD_NOINLINE(void) _append(T* buffer, std::size_t& size, std::size_t max_len, InputIt src_first, InputIt src_last, std::forward_iterator_tag) noexcept(overflow_throws) {
 				std::size_t src_count = distance_up_to_n(src_first, src_last, max_len + 1);
 				src_count = max_length_check(src_count, max_len - size);
 				src_first = uninitialied_copy_n(src_first, src_count, buffer + size);
 				size += src_count;
 			}
 			template<class InputIt>
-			static MPD_NOINLINE(std::size_t) _append(T* buffer, std::size_t& size, std::size_t max_len, InputIt src_first, InputIt src_last, std::output_iterator_tag) noexcept(overflow_throws) {
+			static MPD_NOINLINE(void) _append(T* buffer, std::size_t& size, std::size_t max_len, InputIt src_first, InputIt src_last, std::output_iterator_tag) noexcept(overflow_throws) {
 				auto its = uninitialized_copy_up_to_n(src_first, src_last, max_len - size, buffer + size);
 				size = its.second - buffer;
 				if (its.first != src_last) max_length_check(max_len + 1, max_len);
@@ -289,13 +290,13 @@ namespace mpd {
 		constexpr small_vector(const small_vector<T, other_max, other_overflow>& src) noexcept(overflow_throws)
 			: len_(0) 
 		{
-			assign(src);
+			assign(src.begin(), src.end());
 		}
 		template<std::size_t other_max, overflow_behavior_t other_overflow>
 		constexpr small_vector(small_vector<T, other_max, other_overflow>&& src) noexcept(overflow_throws)
 			: len_(0)
 		{
-			assign(std::move(src));
+			assign(std::make_move_iterator(src.begin()), std::make_move_iterator(src.end()));
 		}
 		template<class InputIt>
 		small_vector(InputIt src_first, InputIt src_last) noexcept(overflow_throws)
@@ -403,12 +404,12 @@ namespace mpd {
 	private:
 		template<class ForwardIt>
 		void _insert2(std::size_t dst_idx, ForwardIt src_first, ForwardIt src_last, std::forward_iterator_tag) noexcept(overflow_throws) {
-			_insert(data(), len_, max_len, dst_idx, src_first, src_last);
+			this->_insert(data(), len_, max_len, dst_idx, src_first, src_last);
 		}
 		template<class InputIt>
 		void _insert2(std::size_t dst_idx, InputIt src_first, InputIt src_last, std::input_iterator_tag) noexcept(overflow_throws) {
 			small_vector temp(src_first, src_last);
-			_insert(data(), len_, max_len, dst_idx, std::make_move_iterator(temp.begin()), temp.size());
+			this->_insert(data(), len_, max_len, dst_idx, std::make_move_iterator(temp.begin()), std::make_move_iterator(temp.end()));
 		}
 	public:
 		iterator insert(const_iterator dst, const T& src) noexcept(overflow_throws) {
@@ -420,7 +421,7 @@ namespace mpd {
 			return (iterator)dst;
 		}
 		iterator insert(const_iterator dst, std::size_t src_count, const T& src) noexcept(overflow_throws) {
-			this->_emplace(data(), len_, max_len, dst - begin(), src_count, src);
+			this->_insert(data(), len_, max_len, dst - begin(), src_count, src);
 			return (iterator)dst;
 		}
 		template<class InputIt, class category=typename std::iterator_traits<InputIt>::iterator_category>
@@ -583,13 +584,13 @@ namespace mpd {
 	}
 	template<class T, std::size_t max_len, overflow_behavior_t behavior, class U>
 	void erase(small_vector<T, max_len, behavior>& str, const U& value) noexcept {
-		const T* end = impl::small_vector_impl<T, behavior>::_remove(str.data(), str.len_, value);
-		str.resize(end - str.data());
+		auto it = std::remove_if(str.begin(), str.end(), [&](const T& v) {return v == value; });
+		str.erase(it, str.end());
 	}
 	template<class T, std::size_t max_len, overflow_behavior_t behavior, class Pred>
 	void erase_if(small_vector<T, max_len, behavior>& str, Pred&& predicate) noexcept {
-		const T* end = impl::small_vector_impl<T, behavior>::_remove_if(str.data(), str.len_, std::forward<Pred>(predicate));
-		str.resize(end - str.data());
+		auto it = std::remove_if(str.begin(), str.end(), predicate);
+		str.erase(it, str.end());
 	}
 }
 namespace std {

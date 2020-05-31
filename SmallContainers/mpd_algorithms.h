@@ -38,6 +38,7 @@ namespace mpd {
 		try {
 			for (std::size_t i = 0; i < count; ++i) {
 				::new (static_cast<void*>(std::addressof(*current))) Value();
+				++current;
 			}
 		}
 		catch (...) {
@@ -73,12 +74,28 @@ namespace mpd {
 			for (; current != last; ++current) {
 				::new (static_cast<void*>(std::addressof(*current))) Value(std::move(*first));
 			}
+			return current;
 		}
 		catch (...) {
 			destroy(first, current);
 			throw;
 		}
 	}
+	template< class InputIt, class T >
+	void uninitialized_fill_n(InputIt first, std::size_t count, const T& value) {
+		InputIt current = first;
+		try {
+			for (std::size_t i = 0; i < count; i++) {
+				::new (static_cast<void*>(std::addressof(*current))) T(value);
+				++first;
+			}
+		}
+		catch (...) {
+			destroy(first, current);
+			throw;
+		}
+	}
+
 	//similar to std::copy, but takes a count for the destination for early stopping
 	template< class InputIt, class Size, class ForwardIt >
 	std::pair< InputIt, ForwardIt> copy_up_to_n(InputIt src_first, InputIt src_last, Size max, ForwardIt dest_first) {
@@ -92,7 +109,7 @@ namespace mpd {
 	}
 	template< class InputIt, class Size, class ForwardIt >
 	std::pair< InputIt, ForwardIt> uninitialized_copy_up_to_n(InputIt src_first, InputIt src_last, Size max, ForwardIt dest_first) {
-		using destT = decltype(*dest_first);
+		using destT = typename std::iterator_traits<ForwardIt>::value_type;
 		ForwardIt init_dest = dest_first;
 		try {
 			while (max && src_first != src_last) {
@@ -138,7 +155,7 @@ namespace mpd {
 	}
 	template<class InBidirIt, class Size, class OutBidirIt >
 	OutBidirIt uninitialized_move_backward_n(InBidirIt src_last, Size count, OutBidirIt dest_last) {
-		using T = typename std::iterator_traits<dest_last>::value_type;
+		using T = typename std::iterator_traits<OutBidirIt>::value_type;
 		OutBidirIt init_dest = dest_last;
 		Size i = 0;
 		try {

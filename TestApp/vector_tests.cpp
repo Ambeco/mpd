@@ -14,11 +14,9 @@ class testing {
 public:
 	testing() : self(this), value_('A'+count_) { ++count_; }
 	testing(wchar_t value) : self(this), value_(value) { ++count_; }
-	testing(const testing& rhs) : self(this), value_(rhs.value_) { assert(rhs.self == &rhs); ++count_;
-	}
+	testing(const testing& rhs) : self(this), value_(rhs.value_) { assert(rhs.self == &rhs); ++count_; 	}
 	template<int other>
-	testing(const testing<other>& rhs) : self(this), value_(rhs.value_) { assert(rhs.self == &rhs); ++count_;
-	}
+	testing(const testing<other>& rhs) : self(this), value_(rhs.value_) { assert(rhs.self == &rhs); ++count_; }
 	~testing() {
 		assert(self == this);
 		self = nullptr;
@@ -43,10 +41,30 @@ public:
 	static void assert_count() { assert(count_==0); }
 };
 
-template<int unique>
-bool operator==(testing<unique> lhs, wchar_t rhs) { return lhs.get() == rhs; }
-template<int unique>
-bool operator==(wchar_t lhs, testing<unique> rhs) { return lhs == rhs.get(); }
+template<int unique1, int unique2>
+bool operator==(const testing<unique1>& lhs, const testing<unique2>& rhs) { return lhs.get() == rhs.get(); }
+template<int unique1, int unique2>
+bool operator!=(const testing<unique1>& lhs, const testing<unique2>& rhs) { return lhs.get() != rhs.get(); }
+template<int unique1, int unique2>
+bool operator<(const testing<unique1>& lhs, const testing<unique2>& rhs) { return lhs.get() < rhs.get(); }
+template<int unique1, int unique2>
+bool operator<=(const testing<unique1>& lhs, const testing<unique2>& rhs) { return lhs.get() <= rhs.get(); }
+template<int unique1, int unique2>
+bool operator>(const testing<unique1>& lhs, const testing<unique2>& rhs) { return lhs.get() > rhs.get(); }
+template<int unique1, int unique2>
+bool operator>=(const testing<unique1>& lhs, const testing<unique2>& rhs) { return lhs.get() >= rhs.get(); }
+template<int unique1>
+bool operator==(const testing<unique1>& lhs, wchar_t rhs) { return lhs.get() == rhs; }
+template<int unique1>
+bool operator!=(const testing<unique1>& lhs, wchar_t rhs) { return lhs.get() != rhs; }
+template<int unique1>
+bool operator<(const testing<unique1>& lhs, wchar_t rhs) { return lhs.get() < rhs; }
+template<int unique1>
+bool operator<=(const testing<unique1>& lhs, wchar_t rhs) { return lhs.get() <= rhs; }
+template<int unique1>
+bool operator>(const testing<unique1>& lhs, wchar_t rhs) { return lhs.get() > rhs; }
+template<int unique1>
+bool operator>=(const testing<unique1>& lhs, wchar_t rhs) { return lhs.get() >= rhs; }
 namespace std {
 	template<int unique>
 	struct hash<testing<unique>> {
@@ -118,7 +136,7 @@ inline std::basic_istringstream<wchar_t> istream(const wchar_t* vec) {
 	return std::basic_istringstream<wchar_t>(vec);
 }
 
-void test_small_strings() {
+void test_small_vectors() {
 	using ostream_t = std::basic_ostringstream<wchar_t>;
 	std::vector<testing<0>> std_vector{ {'f'}, {'g'}, {'h'}, {'i'}, {'j'}, {'k'} };
 	test_vector_t small_lvalue { {'l'}, {'m'}, {'n'}, {'o'}, {'p'}, {'q'} };
@@ -198,7 +216,7 @@ void test_small_strings() {
 	assert((small_lvalue > std_vector) == true);
 	assert((small_lvalue >= std_vector) == true);
 	test_mutation(L"abd", erase(v, L'c'));
-	auto pred = [](wchar_t wc) {return wc == L'c'; };
+	auto pred = [](const testing<0>& v) {return v == L'c'; };
 	test_mutation(L"abd", erase_if(v, pred));
 	assert(hasher({}) == 0x9e3779b9ull);
 	assert(hasher({ {'a'},{'b'} }) == 4133876243914441702ull);
