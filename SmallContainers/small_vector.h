@@ -66,36 +66,46 @@ namespace mpd {
 			static MPD_NOINLINE(void) _assign(T* buffer, std::size_t& size, std::size_t max_len, std::size_t src_count, default_not_value_construct) noexcept(overflow_throws) {
 				src_count = max_length_check(src_count, max_len);
 				std::fill_n(buffer, size, T{});
-				uninitialized_default_construct(buffer + size, buffer + src_count);
+				if (src_count > size) uninitialized_default_construct(buffer + size, buffer + src_count);
+				if (src_count < size) destroy(buffer + src_count, buffer + size);
 				size = src_count;
 			}
 			static MPD_NOINLINE(void) _assign(T* buffer, std::size_t& size, std::size_t max_len, std::size_t src_count, do_value_construct) noexcept(overflow_throws) {
 				src_count = max_length_check(src_count, max_len);
 				std::fill_n(buffer, size, T{});
-				uninitialized_value_construct_n(buffer + size, src_count);
+				if (src_count > size) uninitialized_value_construct_n(buffer + size, src_count);
+				if (src_count < size) destroy(buffer + src_count, buffer + size);
 				size = src_count;
 			}
 			static MPD_NOINLINE(void) _assign(T* buffer, std::size_t& size, std::size_t max_len, std::size_t src_count, const T& src) noexcept(overflow_throws) {
 				src_count = max_length_check(src_count, max_len);
 				std::fill_n(buffer, size, src);
-				std::uninitialized_fill_n(buffer + size, src_count, src);
+				if (src_count > size) std::uninitialized_fill_n(buffer + size, src_count, src);
+				if (src_count < size) destroy(buffer + src_count, buffer + size);
 				size = src_count;
 			}
 			template<class ForwardIt>
 			static MPD_NOINLINE(void) _assign(T* buffer, std::size_t& size, std::size_t max_len, ForwardIt src_first, ForwardIt src_last, std::forward_iterator_tag) noexcept(overflow_throws) {
 				std::size_t src_count = distance_up_to_n(src_first, src_last, max_len + 1);
 				src_count = max_length_check(src_count, max_len);
-				T* mid = std::copy_n(src_first, size, buffer);
-				std::uninitialized_copy_n(std::next(src_first, size), src_count - size, mid);
+				std::size_t copy_count = clamp_max(src_count, size);
+				T* mid = std::copy_n(src_first, copy_count, buffer);
+				if (src_count > size) std::uninitialized_copy_n(std::next(src_first, copy_count), src_count - copy_count, mid);
+				if (src_count < size) destroy(buffer + copy_count, buffer + size);
 				size = src_count;
 			}
 			template<class InputIt>
 			static MPD_NOINLINE(void) _assign(T* buffer, std::size_t& size, std::size_t max_len, InputIt src_first, InputIt src_last, std::input_iterator_tag) noexcept(overflow_throws) {
-				std::size_t max_ctor_count = max_len - size;
-				auto it1 = copy_up_to_n(src_first, src_last, size, buffer);
-				auto it2 = uninitialized_copy_up_to_n(it1.first, src_last, max_ctor_count, it1.second);
-				size = it2.second - buffer;
-				if (it2.first != src_last) max_length_check(max_len + 1, max_len);
+				auto it1 = copy_up_to_n(src_first, src_last, size, buffer); //TODO: all wrong
+				if (it1.first != src_last) {
+					std::size_t max_ctor_count = max_len - size;
+					auto it2 = uninitialized_copy_up_to_n(it1.first, src_last, max_ctor_count, it1.second);
+					size = it2.second - buffer;
+					if (it2.first != src_last) max_length_check(max_len + 1, max_len);
+				} else {
+					destroy(it1.second, buffer + size);
+					size = it1.second - buffer;
+				}
 			}
 			template<class... Us>
 			static MPD_NOINLINE(void) _emplace(T* buffer, std::size_t& size, std::size_t max_len, std::size_t dst_idx, Us&&... src) noexcept(overflow_throws) {

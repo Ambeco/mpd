@@ -9,14 +9,14 @@
 template<int unique>
 class testing {
 	static unsigned count_;
-	testing* self;
 	wchar_t value_;
+	testing* self;
 public:
-	testing() : self(this), value_('A'+count_) { ++count_; }
-	testing(wchar_t value) : self(this), value_(value) { ++count_; }
-	testing(const testing& rhs) : self(this), value_(rhs.value_) { assert(rhs.self == &rhs); ++count_; 	}
+	testing() : value_('A' + count_), self(this) { ++count_; }
+	testing(wchar_t value) : value_(value), self(this) { ++count_; }
+	testing(const testing& rhs) : value_(rhs.value_), self(this) { assert(rhs.self == &rhs); ++count_; 	}
 	template<int other>
-	testing(const testing<other>& rhs) : self(this), value_(rhs.value_) { assert(rhs.self == &rhs); ++count_; }
+	testing(const testing<other>& rhs) : value_(rhs.value_), self(this) { assert(rhs.self == &rhs); ++count_; }
 	~testing() {
 		assert(self == this);
 		self = nullptr;
@@ -158,7 +158,6 @@ void test_small_vectors() {
 	test_mutation(L"lmnop", v = small_lvalue);
 	test_mutation(L"lmnop", v = std::move(small_lvalue));
 	test_mutation(L"123", (v = { {'1'}, {'2'}, {'3'} }));
-	test_mutation(L"a", v = L'a');
 	test_mutation(L"xyz,.", v = init_list);
 	test_mutation(L"fghij", v = std_vector);
 	test_mutation(L"aaaa", v.assign(4, L'a'));
