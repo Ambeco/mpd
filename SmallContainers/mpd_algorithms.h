@@ -31,8 +31,32 @@ namespace mpd {
 			throw;
 		}
 	}
+	template< class ForwardIt >
+	void uninitialized_value_construct_n(ForwardIt first, std::size_t count) {
+		using Value = typename std::iterator_traits<ForwardIt>::value_type;
+		ForwardIt current = first;
+		try {
+			for (std::size_t i = 0; i < count; ++i) {
+				::new (static_cast<void*>(std::addressof(*current))) Value();
+			}
+		}
+		catch (...) {
+			destroy(first, current);
+			throw;
+		}
+	}
 	template< class InputIt, class Size, class OutputIt >
 	OutputIt copy_n(InputIt first, Size count, OutputIt result) {
+		if (count > 0) {
+			*result++ = *first;
+			for (Size i = 1; i < count; ++i) {
+				*result++ = *++first;
+			}
+		}
+		return result;
+	}
+	template< class InputIt, class Size, class OutputIt >
+	OutputIt move_n(InputIt first, Size count, OutputIt result) {
 		if (count > 0) {
 			*result++ = *first;
 			for (Size i = 1; i < count; ++i) {

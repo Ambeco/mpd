@@ -9,6 +9,7 @@
 #include <locale>
 #include <memory>
 #include <string>
+#include <stdexcept>
 #include "mpd_algorithms.h"
 #include "small_vector.h"
 
@@ -256,11 +257,11 @@ namespace mpd {
 		using buffer_t = std::array<charT, max_len + 1>;
 		static const bool overflow_throws = overflow_behavior != overflow_behavior_t::exception;
 
-#ifdef MPD_SSTRING_OVERRRUN_CHECKS
+#ifdef MPD_SSTRING_OVERRUN_CHECKS
 		volatile charT before_buffer_checker = (charT)0x66;
 #endif
 		buffer_t buffer;
-#ifdef MPD_SSTRING_OVERRRUN_CHECKS
+#ifdef MPD_SSTRING_OVERRUN_CHECKS
 		volatile charT after_buffer_checker = (charT)0x66;
 		void check_overruns() {
 			assert(before_buffer_checker == (charT)0x66);
