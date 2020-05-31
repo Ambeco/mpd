@@ -24,5 +24,11 @@
     <ClInclude Include="small_string.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="small_vector.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="mpd_algorithms.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

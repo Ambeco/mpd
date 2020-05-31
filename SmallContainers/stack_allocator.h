@@ -148,68 +148,68 @@ namespace mpd {
 	};
 
 	template<class T, unsigned char max_len>
-	struct small_vector : std::vector<T, local_allocator<T, max_len*sizeof(T)>> {
-		small_vector() noexcept
+	struct small_std_vector : std::vector<T, local_allocator<T, max_len*sizeof(T)>> {
+		small_std_vector() noexcept
 			{ this->reserve(max_len); }
-		explicit small_vector(std::size_t count, const T& value)
+		explicit small_std_vector(std::size_t count, const T& value)
 		{ this->reserve(max_len); this->assign(count, value); }
-		explicit small_vector(std::size_t count)
+		explicit small_std_vector(std::size_t count)
 		{ this->reserve(max_len); this->resize(count); }
 		template<class InputIt>
-		small_vector(InputIt first, InputIt last)
+		small_std_vector(InputIt first, InputIt last)
 			{ this->reserve(max_len); this->assign(first, last); }
 		template<class alloc>
-		small_vector(const std::vector < T, alloc>& other)
+		small_std_vector(const std::vector < T, alloc>& other)
 			{ this->reserve(max_len); this->assign(other); }
-		small_vector(std::initializer_list<T> init)
+		small_std_vector(std::initializer_list<T> init)
 			{ this->reserve(max_len); this->assign(init); }
 	};
 
 	template<class charT, unsigned char max_len>
-	struct small_basic_string : std::basic_string<charT, std::char_traits<charT>, local_allocator<charT, (max_len+1*sizeof(charT))>>{
-		small_basic_string() noexcept 
+	struct small_std_basic_string : std::basic_string<charT, std::char_traits<charT>, local_allocator<charT, (max_len+1*sizeof(charT))>>{
+		small_std_basic_string() noexcept 
 			{ this->reserve(max_len); }
-		small_basic_string(std::size_t count, charT ch)
+		small_std_basic_string(std::size_t count, charT ch)
 		{ this->reserve(max_len); this->assign(count, ch); }
 		template<class alloc>
-		small_basic_string(const std::basic_string<charT, std::char_traits<charT>, alloc>& other, 
+		small_std_basic_string(const std::basic_string<charT, std::char_traits<charT>, alloc>& other, 
 			std::size_t pos, std::size_t count =std::basic_string<charT>::npos)
 			{ this->reserve(max_len); this->assign(other, pos, count); }
-		small_basic_string(const charT* s, std::size_t count)
+		small_std_basic_string(const charT* s, std::size_t count)
 			{ this->reserve(max_len); this->assign(s, count); }
-		small_basic_string(const charT* s)
+		small_std_basic_string(const charT* s)
 			{ this->reserve(max_len); this->assign(s); }
 		template<class InputIt>
-		small_basic_string(InputIt first, InputIt last)
+		small_std_basic_string(InputIt first, InputIt last)
 			{ this->reserve(max_len); this->assign(first, last); }
 		template<class alloc>
-		small_basic_string(const std::basic_string<charT, std::char_traits<charT>, alloc>& other)
+		small_std_basic_string(const std::basic_string<charT, std::char_traits<charT>, alloc>& other)
 			{ this->reserve(max_len); this->assign(other); }
-		small_basic_string(const std::initializer_list<charT>& iList) 
+		small_std_basic_string(const std::initializer_list<charT>& iList) 
 			{ this->reserve(max_len); this->assign(iList); }
 #if _HAS_CXX17
 		template<class T, std::enable_if_t<
 			std::is_convertible_v<const T&, std::basic_string_view<charT>>
 			&& !std::is_convertible_v<const T&, const CharT*>>=0>
-		explicit small_basic_string(const T& other)
+		explicit small_std_basic_string(const T& other)
 			{ this->reserve(max_len); this->assign(std::basic_string_view<charT, std::char_tarits<charT>>(other)); }
 		template<class T, std::enable_if_t<
 			std::is_convertible_v<const T&, std::basic_string_view<CharT, Traits>>>=0>
-		small_basic_string(const T& other, std::size_t pos, std::size_t n)
+		small_std_basic_string(const T& other, std::size_t pos, std::size_t n)
 			{ this->reserve(max_len); this->assign(std::basic_string_view<charT, std::char_tarits<charT>>(other, pos, n)); }
 #endif
 	};
 	template<unsigned char max_len>
-	using small_string = small_basic_string<char, max_len>;
+	using small_std_string = small_std_basic_string<char, max_len>;
 	template<unsigned char max_len>
-	using small_wstring = small_basic_string<wchar_t, max_len>;
+	using small_std_wstring = small_std_basic_string<wchar_t, max_len>;
 #if _HAS_CXX17
 	template<unsigned char max_len>
-	using small_u8string = small_basic_string<std::char8_t, max_len>;
+	using small_std_u8string = small_std_basic_string<std::char8_t, max_len>;
 	template<unsigned char max_len>
-	using small_u16string = small_basic_string<std::char16_t, max_len>;
+	using small_std_u16string = small_std_basic_string<std::char16_t, max_len>;
 	template<unsigned char max_len>
-	using small_u32string = small_basic_string<std::char32_t, max_len>;
+	using small_std_u32string = small_std_basic_string<std::char32_t, max_len>;
 	}
 #endif
 }

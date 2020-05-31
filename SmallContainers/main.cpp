@@ -1,5 +1,6 @@
 #define MPD_SSTRING_OVERRRUN_CHECKS
 #include "small_string.h"
+#include "small_vector.h"
 #include <functional>
 #include <iostream>
 #include <sstream>
@@ -10,18 +11,18 @@ using test_string_t = mpd::small_basic_string<wchar_t, 5, mpd::overflow_behavior
 using bigger_string_t = mpd::small_basic_string<wchar_t, 7, mpd::overflow_behavior_t::silently_truncate>;
 using char_test_string_t = mpd::small_basic_string<char, 5, mpd::overflow_behavior_t::silently_truncate>;
 
-struct c_out_it {
+struct c_in_it {
 	using value_type = wchar_t;
 	using difference_type = std::ptrdiff_t;
 	using reference = wchar_t&;
 	using pointer = wchar_t*;
-	using iterator_category = std::output_iterator_tag;
+	using iterator_category = std::input_iterator_tag;
 	wchar_t c;
-	c_out_it operator++() { ++c; return *this; }
-	c_out_it operator++(int) { ++c; return *this; }
+	c_in_it operator++() { ++c; return *this; }
+	c_in_it operator++(int) { ++c; return *this; }
 	wchar_t operator*() const { return c; }
-	bool operator==(c_out_it other) const { return c == other.c; }
-	bool operator!=(c_out_it other) const { return c != other.c; }
+	bool operator==(c_in_it other) const { return c == other.c; }
+	bool operator!=(c_in_it other) const { return c != other.c; }
 };
 
 template<class...Ts>
@@ -66,9 +67,9 @@ void test_def_ctor() {
 std::basic_istringstream<wchar_t> istream(const wchar_t* str) {
 	return std::basic_istringstream<wchar_t>(str);
 }
-using ostream_t = std::basic_ostringstream<wchar_t>;
 
-int main() {
+void test_small_strings() {
+	using ostream_t = std::basic_ostringstream<wchar_t>;
 	std::wstring std_string = L"fghijk";
 	test_string_t small_lvalue = L"lmnopq";
 	bigger_string_t large_lvalue = L"rstuvw";
@@ -92,7 +93,7 @@ int main() {
 	test_ctor(L"stuvw", large_lvalue, 1);
 	test_ctor(L"stu", large_lvalue, 1, 3);
 	test_ctor(L"w", large_lvalue, 5, 5);
-	test_ctor(L"ABCDE", c_out_it{ 'A' }, c_out_it{ 'Z' });
+	test_ctor(L"ABCDE", c_in_it{ 'A' }, c_in_it{ 'Z' });
 	test_mutation(L"rstuv", v = large_lvalue);
 	test_mutation(L"lmnop", v = small_lvalue);
 	test_mutation(L"lmnop", v = std::move(small_lvalue));
@@ -111,7 +112,7 @@ int main() {
 	test_mutation(L"12", v.assign(L"1234567", 2));
 	test_mutation(L"xyz,.", v.assign(init_list));
 	test_mutation(L"fghij", v.assign(std_string));
-	test_mutation(L"ABCDE", v.assign(c_out_it{ 'A' }, c_out_it{ 'Z' }));
+	test_mutation(L"ABCDE", v.assign(c_in_it{ 'A' }, c_in_it{ 'Z' }));
 	assert(small_lvalue.get_allocator() == std::allocator<char>{});
 	assert(small_lvalue.at(2) == 'n');
 	assert(small_lvalue[2] == 'n');
@@ -141,7 +142,7 @@ int main() {
 	test_mutation(L"abzcd", v.insert(v.begin() + 2, 'z'));
 	test_mutation(L"abzzc", v.insert(v.begin() + 2, 2, 'z'));
 	test_mutation(L"abfgh", v.insert(v.begin() + 2, std_string.begin(), std_string.end()));
-	test_mutation(L"abABC", v.insert(v.begin() + 2, c_out_it{ 'A' }, c_out_it{ 'Z' }));
+	test_mutation(L"abABC", v.insert(v.begin() + 2, c_in_it{ 'A' }, c_in_it{ 'Z' }));
 	test_mutation(L"axyz,", v.insert(1, init_list));
 	test_mutation(L"aghbc", v.insert(1, std_string, 1, 2));
 	test_mutation(L"", v.erase());
@@ -155,7 +156,7 @@ int main() {
 	test_mutation(L"abcds", v.append(large_lvalue, 1, 2));
 	test_mutation(L"abcd1", v.append(L"123", 3));
 	test_mutation(L"abcd1", v.append(L"123"));
-	test_mutation(L"abcdA", v.append(c_out_it{ 'A' }, c_out_it{ 'Z' }));
+	test_mutation(L"abcdA", v.append(c_in_it{ 'A' }, c_in_it{ 'Z' }));
 	test_mutation(L"abcdx", v.append(init_list));
 	test_mutation(L"abcdg", v.append(std_string, 1, 2));
 	test_mutation(L"abcdr", v += large_lvalue);
@@ -167,8 +168,8 @@ int main() {
 	test_mutation(L"arstu", v.replace(v.begin() + 1, v.begin() + 2, large_lvalue));
 	test_mutation(L"astcd", v.replace(1, 1, large_lvalue, 1, 2));
 	test_mutation(L"afghi", v.replace(v.begin() + 1, v.begin() + 2, std_string.begin(), std_string.end()));
-	test_mutation(L"aABCD", v.replace(v.begin() + 1, v.begin() + 2, c_out_it{ 'A' }, c_out_it{ 'Z' }));
-	test_mutation(L"aAcd", v.replace(v.begin() + 1, v.begin() + 2, c_out_it{ 'A' }, c_out_it{ 'B' }));
+	test_mutation(L"aABCD", v.replace(v.begin() + 1, v.begin() + 2, c_in_it{ 'A' }, c_in_it{ 'Z' }));
+	test_mutation(L"aAcd", v.replace(v.begin() + 1, v.begin() + 2, c_in_it{ 'A' }, c_in_it{ 'B' }));
 	test_mutation(L"a12cd", v.replace(1, 1, L"12", 2));
 	test_mutation(L"a12cd", v.replace(v.begin() + 1, v.begin() + 2, L"12", 2));
 	test_mutation(L"a12cd", v.replace(1, 1, L"12"));
@@ -344,5 +345,13 @@ int main() {
 	assert(hasher(L"") == 0x9e3779b9ull);
 	assert(hasher(L"ab") == 4133876243914441702ull);
 	assert(hasher(L"ba") == 4389997032588314883ull);
+}
+
+void test_small_vectors() {
+}
+
+int main() {
+	test_small_strings();
+	test_small_vectors();
 	return 0;
 }

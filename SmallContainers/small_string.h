@@ -9,89 +9,12 @@
 #include <locale>
 #include <memory>
 #include <string>
+#include "mpd_algorithms.h"
+#include "small_vector.h"
 
 //inspired by https://codereview.stackexchange.com/questions/148757/short-string-class
 namespace mpd {
-	//similar to std::copy, but takes a count for the destination for early stopping
-	template< class InputIt, class Size, class ForwardIt >
-	std::pair< InputIt, ForwardIt> copy_up_to_n(InputIt src_first, InputIt src_last, Size max, ForwardIt dest_first) {
-		while (max && src_first != src_last) {
-			*dest_first = *src_first;
-			++src_first;
-			++dest_first;
-			--max;
-		}
-		return { src_first, dest_first };
-	}
-	//std::copy_backward_n is simply missing from the standard library
-	template<class InBidirIt, class Size, class OutBidirIt >
-	OutBidirIt copy_backward_n(InBidirIt src_last, Size count, OutBidirIt dest_last) {
-		for (Size i = 0; i < count; ++i)
-			*(--dest_last) = *(--src_last);
-		return dest_last;
-	}
-
-	//similar to std::strlen_s, but works on arbitrary character types
-	template<class charT>
-	std::size_t strnlen_s_algorithm(const charT* ptr, std::size_t max) {
-		std::size_t len = 0;
-		while (*ptr && len < max) {
-			++ptr;
-			++len;
-		}
-		return len;
-	}
-
-	//similar to std::distance, but takes a count for the destination for early stopping
-	template<class ForwardIt>
-	typename std::iterator_traits<ForwardIt>::difference_type distance_up_to_n(ForwardIt first, ForwardIt last, typename std::iterator_traits<ForwardIt>::difference_type max, std::forward_iterator_tag)
-	{
-		typename std::iterator_traits<ForwardIt>::difference_type distance = 0;
-		while (first != last && distance < max) {
-			++first;
-			++distance;
-		}
-		return distance;
-	}
-	template<class RandIt>
-	typename std::iterator_traits<RandIt>::difference_type distance_up_to_n(RandIt first, RandIt last, typename std::iterator_traits<RandIt>::difference_type max, std::random_access_iterator_tag)
-	{
-		return std::min(last - first, max);
-	}
-	template<class ForwardIt>
-	typename std::iterator_traits<ForwardIt>::difference_type distance_up_to_n(ForwardIt first, ForwardIt last, typename std::iterator_traits<ForwardIt>::difference_type max)
-	{
-		return distance_up_to_n(first, last, max, typename std::iterator_traits<ForwardIt>::iterator_category{});
-	}
-
-	enum class overflow_behavior_t {
-		exception,
-		assert_and_truncate,
-		silently_truncate // :(
-	};
 	namespace impl {
-		template<overflow_behavior_t> std::size_t max_length_check(std::size_t given, std::size_t maximum);
-		template<>
-		std::size_t max_length_check<overflow_behavior_t::exception>(std::size_t given, std::size_t maximum) {
-			if (given > maximum) throw std::length_error(std::to_string(given) + " overflows small_string");
-			return given;
-		}
-		template<>
-		std::size_t max_length_check<overflow_behavior_t::assert_and_truncate>(std::size_t given, std::size_t maximum) noexcept {
-			if (given > maximum) {
-				assert(false);
-				return maximum;
-			}
-			return given;
-		}
-		template<>
-		std::size_t max_length_check<overflow_behavior_t::silently_truncate>(std::size_t given, std::size_t maximum) noexcept {
-			if (given > maximum) {
-				return maximum;
-			}
-			return given;
-		}
-
 #ifdef _MSC_VER
 #define MPD_NOINLINE(T) __declspec(noinline) T
 #else
@@ -121,15 +44,15 @@ namespace mpd {
 				std::fill_n(buffer, src_count, src);
 				return src_count;
 			}
-			template<class InputIt>
-			static MPD_NOINLINE(std::size_t) _assign(charT* buffer, std::size_t before_size, std::size_t max_len, InputIt src_first, InputIt src_last, std::forward_iterator_tag) noexcept(overflow_throws) {
+			template<class ForwardIt>
+			static MPD_NOINLINE(std::size_t) _assign(charT* buffer, std::size_t before_size, std::size_t max_len, ForwardIt src_first, ForwardIt src_last, std::forward_iterator_tag) noexcept(overflow_throws) {
 				std::size_t src_count = distance_up_to_n(src_first, src_last, max_len + 1);
 				src_count = max_length_check(src_count, max_len);
 				std::copy_n(src_first, src_count, buffer);
 				return src_count;
 			}
 			template<class InputIt>
-			static MPD_NOINLINE(std::size_t) _assign(charT* buffer, std::size_t before_size, std::size_t max_len, InputIt src_first, InputIt src_last, std::output_iterator_tag) noexcept(overflow_throws) {
+			static MPD_NOINLINE(std::size_t) _assign(charT* buffer, std::size_t before_size, std::size_t max_len, InputIt src_first, InputIt src_last, std::input_iterator_tag) noexcept(overflow_throws) {
 				auto its = copy_up_to_n(src_first, src_last, max_len, buffer);
 				if (its.first != src_last) max_length_check(max_len + 1, max_len);
 				std::size_t src_count = its.second - buffer;
@@ -142,8 +65,8 @@ namespace mpd {
 				std::fill_n(buffer + dst_idx, src_count, src);
 				return dst_idx + src_count + keep_end;
 			}
-			template<class InputIt>
-			static MPD_NOINLINE(std::size_t) _insert(charT* buffer, std::size_t before_size, std::size_t max_len, std::size_t dst_idx, InputIt src_first, InputIt src_last, std::forward_iterator_tag) noexcept(overflow_throws) {
+			template<class ForwardIt>
+			static MPD_NOINLINE(std::size_t) _insert(charT* buffer, std::size_t before_size, std::size_t max_len, std::size_t dst_idx, ForwardIt src_first, ForwardIt src_last, std::forward_iterator_tag) noexcept(overflow_throws) {
 				dst_idx = index_range_check(dst_idx, before_size);
 				std::size_t src_count = distance_up_to_n(src_first, src_last, max_len - dst_idx + 1);
 				src_count = max_length_check(src_count, max_len - dst_idx);
@@ -153,7 +76,7 @@ namespace mpd {
 				return dst_idx + src_count + keep_end;
 			}
 			template<class InputIt>
-			static MPD_NOINLINE(std::size_t) _insert(charT* buffer, std::size_t before_size, std::size_t max_len, std::size_t dst_idx, InputIt src_first, InputIt src_last, std::output_iterator_tag) noexcept(overflow_throws) {
+			static MPD_NOINLINE(std::size_t) _insert(charT* buffer, std::size_t before_size, std::size_t max_len, std::size_t dst_idx, InputIt src_first, InputIt src_last, std::input_iterator_tag) noexcept(overflow_throws) {
 				dst_idx = index_range_check(dst_idx, before_size);
 				//reverse the src_last part so we keep the src_first bytes when truncating :(
 				std::reverse(buffer + dst_idx, buffer + max_len);
@@ -178,15 +101,15 @@ namespace mpd {
 				std::fill_n(buffer + before_size, src_count, src);
 				return before_size + src_count;
 			}
-			template<class InputIt>
-			static MPD_NOINLINE(std::size_t) _append(charT* buffer, std::size_t before_size, std::size_t max_len, InputIt src_first, InputIt src_last, std::forward_iterator_tag) noexcept(overflow_throws) {
+			template<class ForwardIt>
+			static MPD_NOINLINE(std::size_t) _append(charT* buffer, std::size_t before_size, std::size_t max_len, ForwardIt src_first, ForwardIt src_last, std::forward_iterator_tag) noexcept(overflow_throws) {
 				std::size_t src_count = distance_up_to_n(src_first, src_last, max_len + 1);
 				src_count = max_length_check(src_count, max_len - before_size);
 				std::copy_n(src_first, src_count, buffer + before_size);
 				return before_size + src_count;
 			}
 			template<class InputIt>
-			static MPD_NOINLINE(std::size_t) _append(charT* buffer, std::size_t before_size, std::size_t max_len, InputIt src_first, InputIt src_last, std::output_iterator_tag) noexcept(overflow_throws) {
+			static MPD_NOINLINE(std::size_t) _append(charT* buffer, std::size_t before_size, std::size_t max_len, InputIt src_first, InputIt src_last, std::input_iterator_tag) noexcept(overflow_throws) {
 				auto its = copy_up_to_n(src_first, src_last, max_len - before_size, buffer + before_size);
 				if (its.first != src_last) max_length_check(max_len + 1, max_len);
 				std::size_t new_size = its.second - buffer;
@@ -198,8 +121,8 @@ namespace mpd {
 				std::copy_n(buffer + src_idx, src_count, dest);
 				dest[src_count] = (charT)'\0';
 			}
-			template<class InputIt>
-			static MPD_NOINLINE(std::size_t) _replace(charT* buffer, std::size_t before_size, std::size_t max_len, std::size_t dst_idx, std::size_t rem_count, InputIt src_first, std::size_t ins_count) noexcept(overflow_throws) {
+			template<class ForwardIt>
+			static MPD_NOINLINE(std::size_t) _replace(charT* buffer, std::size_t before_size, std::size_t max_len, std::size_t dst_idx, std::size_t rem_count, ForwardIt src_first, std::size_t ins_count) noexcept(overflow_throws) {
 				dst_idx = index_range_check(dst_idx, before_size);
 				rem_count = index_range_check(rem_count, before_size - dst_idx);
 				ins_count = max_length_check(ins_count, max_len - dst_idx);
@@ -209,15 +132,15 @@ namespace mpd {
 				std::copy_n(src_first, ins_count, buffer + dst_idx);
 				return new_size;
 			}
-			template<class InputIt>
-			static std::size_t _replace(charT* buffer, std::size_t before_size, std::size_t max_len, std::size_t dst_idx, std::size_t rem_count, InputIt src_first, InputIt src_last, std::forward_iterator_tag) noexcept(overflow_throws)
+			template<class ForwardIt>
+			static std::size_t _replace(charT* buffer, std::size_t before_size, std::size_t max_len, std::size_t dst_idx, std::size_t rem_count, ForwardIt src_first, ForwardIt src_last, std::forward_iterator_tag) noexcept(overflow_throws)
 			{
 				dst_idx = index_range_check(dst_idx, max_len);
 				std::size_t src_count = distance_up_to_n(src_first, src_last, before_size - dst_idx + 1);
 				return _replace(buffer, before_size, max_len, dst_idx, rem_count, src_first, src_count);
 			}
 			template<class InputIt>
-			static MPD_NOINLINE(std::size_t) _replace(charT* buffer, std::size_t before_size, std::size_t max_len, std::size_t dst_idx, std::size_t rem_count, InputIt src_first, InputIt src_last, std::output_iterator_tag) noexcept(overflow_throws)
+			static MPD_NOINLINE(std::size_t) _replace(charT* buffer, std::size_t before_size, std::size_t max_len, std::size_t dst_idx, std::size_t rem_count, InputIt src_first, InputIt src_last, std::input_iterator_tag) noexcept(overflow_throws)
 			{
 				dst_idx = index_range_check(dst_idx, max_len);
 				rem_count = index_range_check(rem_count, max_len - dst_idx);
@@ -406,10 +329,6 @@ namespace mpd {
 			set_size(0);
 			assign(src);
 		}
-		constexpr small_basic_string(small_basic_string&& src) noexcept {
-			set_size(0);
-			assign(src);
-		}
 		constexpr small_basic_string(std::initializer_list<charT> src) noexcept(overflow_throws) {
 			set_size(0);
 			assign(src);
@@ -440,7 +359,6 @@ namespace mpd {
 		template<std::size_t other_max, overflow_behavior_t other_overflow>
 		small_basic_string& operator=(const small_basic_string<charT, other_max, other_overflow>& src) noexcept(overflow_throws) { return assign(src); }
 		small_basic_string& operator=(const small_basic_string& src) noexcept { return assign(src); }
-		small_basic_string& operator=(small_basic_string&& src) noexcept { return assign(src); }
 		small_basic_string& operator=(const charT* src) noexcept(overflow_throws) { return assign(src); }
 		small_basic_string& operator=(charT src) noexcept { return assign(1, src); }
 		small_basic_string& operator=(std::initializer_list<charT> src) noexcept(overflow_throws) { return assign(src); }
