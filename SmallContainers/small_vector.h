@@ -65,23 +65,32 @@ namespace mpd {
 			}
 			static MPD_NOINLINE(void) _assign(T* buffer, std::size_t& size, std::size_t max_len, std::size_t src_count, default_not_value_construct) noexcept(overflow_throws) {
 				src_count = max_length_check(src_count, max_len);
-				std::fill_n(buffer, size, T{});
-				if (src_count > size) uninitialized_default_construct(buffer + size, buffer + src_count);
-				if (src_count < size) destroy(buffer + src_count, buffer + size);
+				std::size_t copy_count = clamp_max(src_count, size);
+				std::size_t insert_count = src_count > size ? src_count - copy_count : 0;
+				std::size_t destroy_count = src_count < size ? src_count - copy_count : 0;
+				std::fill_n(buffer, copy_count, T{});
+				uninitialized_default_construct(buffer + copy_count, buffer + insert_count);
+				destroy(buffer + copy_count, buffer + copy_count + destroy_count);
 				size = src_count;
 			}
 			static MPD_NOINLINE(void) _assign(T* buffer, std::size_t& size, std::size_t max_len, std::size_t src_count, do_value_construct) noexcept(overflow_throws) {
 				src_count = max_length_check(src_count, max_len);
-				std::fill_n(buffer, size, T{});
-				if (src_count > size) uninitialized_value_construct_n(buffer + size, src_count);
-				if (src_count < size) destroy(buffer + src_count, buffer + size);
+				std::size_t copy_count = clamp_max(src_count, size);
+				std::size_t insert_count = src_count > size ? src_count - copy_count : 0;
+				std::size_t destroy_count = src_count < size ? src_count - copy_count : 0;
+				std::fill_n(buffer, copy_count, T{});
+				uninitialized_value_construct_n(buffer + copy_count, insert_count);
+				destroy(buffer + copy_count, buffer + copy_count + destroy_count);
 				size = src_count;
 			}
 			static MPD_NOINLINE(void) _assign(T* buffer, std::size_t& size, std::size_t max_len, std::size_t src_count, const T& src) noexcept(overflow_throws) {
 				src_count = max_length_check(src_count, max_len);
-				std::fill_n(buffer, size, src);
-				if (src_count > size) std::uninitialized_fill_n(buffer + size, src_count, src);
-				if (src_count < size) destroy(buffer + src_count, buffer + size);
+				std::size_t copy_count = clamp_max(src_count, size);
+				std::size_t insert_count = src_count > size ? src_count - copy_count : 0;
+				std::size_t destroy_count = src_count < size ? src_count - copy_count : 0;
+				std::fill_n(buffer, copy_count, src);
+				std::uninitialized_fill_n(buffer + copy_count, insert_count, src);
+				destroy(buffer + copy_count, buffer + copy_count + destroy_count);
 				size = src_count;
 			}
 			template<class ForwardIt>
@@ -89,9 +98,11 @@ namespace mpd {
 				std::size_t src_count = distance_up_to_n(src_first, src_last, max_len + 1);
 				src_count = max_length_check(src_count, max_len);
 				std::size_t copy_count = clamp_max(src_count, size);
+				std::size_t insert_count = src_count > size ? src_count - copy_count : 0;
+				std::size_t destroy_count = src_count < size ? src_count - copy_count : 0;
 				T* mid = std::copy_n(src_first, copy_count, buffer);
-				if (src_count > size) std::uninitialized_copy_n(std::next(src_first, copy_count), src_count - copy_count, mid);
-				if (src_count < size) destroy(buffer + copy_count, buffer + size);
+				std::uninitialized_copy_n(std::next(src_first, copy_count), insert_count, mid);
+				destroy(buffer + copy_count, buffer + copy_count + destroy_count);
 				size = src_count;
 			}
 			template<class InputIt>
@@ -121,18 +132,18 @@ namespace mpd {
 				move_backward_n(buffer + dst_idx, keep_count, buffer + dst_idx + 1);
 				buffer[dst_idx] = T(std::forward<Us>(src)...);
 			}
-			static MPD_NOINLINE(void) _insert(T* buffer, std::size_t& size, std::size_t max_len, std::size_t dst_idx, std::size_t src_count, T src) noexcept(overflow_throws) {
+			static MPD_NOINLINE(void) _insert(T* buffer, std::size_t& size, std::size_t max_len, std::size_t dst_idx, std::size_t src_count, const T& src) noexcept(overflow_throws) {
 				dst_idx = index_range_check(dst_idx, size);
 				std::size_t insert_move_count = clamp_max(src_count, size - dst_idx);
 				std::size_t insert_construct_count = max_length_check(src_count, max_len - dst_idx) - insert_move_count;
 				src_count = insert_move_count + insert_construct_count;
 				std::size_t keep_move_count = size - dst_idx - insert_move_count;
-				std::size_t keep_construct_count = max_length_check(size + src_count, max_len) - insert_construct_count;
+				std::size_t keep_construct_count = max_length_check(src_count, max_len - size) - insert_construct_count;
 				uninitialized_fill_n(buffer + size, insert_construct_count, src);
 				size += insert_construct_count;
-				uninitialized_move_backward_n(buffer + size + insert_construct_count, keep_construct_count, buffer + dst_idx + keep_move_count);
+				uninitialized_move_backward_n(buffer + dst_idx + keep_move_count, keep_construct_count, buffer + size);
 				size += keep_construct_count;
-				move_backward_n(buffer + dst_idx + keep_construct_count, keep_move_count, buffer + dst_idx + insert_construct_count + insert_move_count + keep_move_count);
+				move_backward_n(buffer + dst_idx, keep_move_count, buffer + dst_idx + insert_move_count);
 				std::fill_n(buffer + dst_idx, insert_move_count, src);
 			}
 			template<class ForwardIt>
@@ -144,8 +155,7 @@ namespace mpd {
 				src_count = insert_move_count + insert_construct_count;
 				std::size_t keep_move_count = size - dst_idx - insert_move_count;
 				std::size_t keep_construct_count = max_length_check(size + src_count, max_len) - insert_construct_count;
-				std::uninitialized_copy_n(src_first, insert_construct_count, buffer + size);  //WRONG ITEMS These are the first, in the wrong place!
-				std::advance(src_first, insert_construct_count);
+				std::uninitialized_copy_n(std::next(src_first, insert_move_count), insert_construct_count, buffer + size);
 				size += insert_construct_count;
 				uninitialized_move_backward_n(buffer + size, keep_construct_count, buffer + dst_idx + keep_move_count);
 				size += keep_construct_count;
@@ -165,7 +175,7 @@ namespace mpd {
 				uninitialized_value_construct_n(buffer + size, src_count);
 				size += src_count;
 			}
-			static MPD_NOINLINE(void) _append(T* buffer, std::size_t& size, std::size_t max_len, std::size_t src_count, T src) noexcept(overflow_throws) {
+			static MPD_NOINLINE(void) _append(T* buffer, std::size_t& size, std::size_t max_len, std::size_t src_count, const T& src) noexcept(overflow_throws) {
 				src_count = max_length_check(src_count, max_len - size);
 				std::uninitialized_fill_n(buffer + size, src_count, src);
 				size += src_count;
@@ -492,7 +502,7 @@ namespace mpd {
 			if (src_count < len_)
 				this->_erase(data(), len_, max_len, src_count, len_ - src_count);
 		}
-		void resize(std::size_t src_count, T src) noexcept(overflow_throws)
+		void resize(std::size_t src_count, const T& src) noexcept(overflow_throws)
 		{
 			src_count = max_length_check(src_count);
 			if (src_count > len_)
