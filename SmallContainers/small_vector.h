@@ -233,17 +233,17 @@ namespace mpd {
 			static MPD_NOINLINE(const T*) _remove_if(T* buffer, std::size_t& size, Pred&& predicate) noexcept {
 				return std::remove_if(buffer, buffer + size, std::forward<Pred>(predicate));
 			}
-			static MPD_NOINLINE(void) _swap(T* buffer, std::size_t& size, std::size_t max_len, T* other_buffer, std::size_t& other_size, std::size_t other_max) noexcept(overflow_throws) {
+			static MPD_NOINLINE(void) _swap(T* buffer, std::size_t& size, std::size_t max_len, T* src_first, std::size_t& other_size, std::size_t other_max) noexcept(overflow_throws) {
 				if (size > other_size) {
-					_swap(other_buffer, other_size, other_max, buffer, size, max_len);
+					_swap(src_first, other_size, other_max, buffer, size, max_len);
 					return;
 				}
 				std::size_t swap_count = size;
 				std::size_t ctor_count = other_size - size;
-				std::swap_ranges(buffer, buffer + size, other_buffer);
-				uninitialized_move(other_buffer + swap_count, other_buffer + other_size, buffer + swap_count);
+				std::swap_ranges(buffer, buffer + size, src_first);
+				uninitialized_move_n(src_first + swap_count, ctor_count, buffer + swap_count);
 				size += ctor_count;
-				destroy(other_buffer + swap_count, other_buffer + other_size);
+				destroy(src_first + swap_count, src_first + other_size);
 				other_size -= ctor_count;
 			}
 		};

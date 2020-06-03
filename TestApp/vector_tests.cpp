@@ -19,6 +19,7 @@ public:
 	testing(const testing<other>& rhs) : value_(rhs.value_), self(this) { assert(rhs.self == &rhs); ++count_; }
 	~testing() {
 		assert(self == this);
+		value_ = 0;
 		self = nullptr;
 		--count_;
 	}
