@@ -141,9 +141,9 @@ namespace mpd {
 				std::size_t keep_construct_count = max_length_check(src_count, max_len - size) - insert_construct_count;
 				uninitialized_fill_n(buffer + size, insert_construct_count, src);
 				size += insert_construct_count;
-				uninitialized_move_backward_n(buffer + dst_idx + keep_move_count, keep_construct_count, buffer + size);
+				uninitialized_move_n(buffer + dst_idx + keep_move_count, keep_construct_count, buffer + size);
 				size += keep_construct_count;
-				move_backward_n(buffer + dst_idx, keep_move_count, buffer + dst_idx + insert_move_count);
+				move_backward_n(buffer + dst_idx + keep_move_count, keep_move_count, buffer + dst_idx + src_count + keep_move_count);
 				std::fill_n(buffer + dst_idx, insert_move_count, src);
 			}
 			template<class ForwardIt>
@@ -157,7 +157,7 @@ namespace mpd {
 				std::size_t keep_construct_count = max_length_check(size + src_count, max_len) - insert_construct_count;
 				std::uninitialized_copy_n(std::next(src_first, insert_move_count), insert_construct_count, buffer + size);
 				size += insert_construct_count;
-				uninitialized_move_backward_n(buffer + size, keep_construct_count, buffer + dst_idx + keep_move_count);
+				uninitialized_move_n(buffer + dst_idx + keep_move_count, keep_construct_count, buffer + size);
 				size += keep_construct_count;
 				move_backward_n(buffer + dst_idx + keep_construct_count, keep_move_count, buffer + dst_idx + insert_construct_count + insert_move_count + keep_move_count);
 				std::copy_n(src_first, insert_move_count, buffer + dst_idx);

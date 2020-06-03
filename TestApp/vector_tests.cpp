@@ -10,7 +10,7 @@ template<int unique>
 class testing {
 	static unsigned count_;
 	wchar_t value_;
-	testing* self;
+	const void* self;
 public:
 	testing() : value_('A' + count_), self(this) { ++count_; }
 	testing(wchar_t value) : value_(value), self(this) { ++count_; }

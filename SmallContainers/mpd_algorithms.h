@@ -81,6 +81,22 @@ namespace mpd {
 			throw;
 		}
 	}
+	template< class InputIt, class OutputIt >
+	void uninitialized_move_n(InputIt source, std::size_t count, OutputIt dest) {
+		using Value = typename std::iterator_traits<OutputIt>::value_type;
+		OutputIt initial = dest;
+		try {
+			for (std::size_t i = 0; i < count; i++) {
+				::new (static_cast<void*>(std::addressof(*dest))) Value(*source);
+				++source;
+				++dest;
+			}
+		}
+		catch (...) {
+			destroy(initial, dest);
+			throw;
+		}
+	}
 	template< class InputIt, class T >
 	void uninitialized_fill_n(InputIt first, std::size_t count, const T& value) {
 		InputIt current = first;
