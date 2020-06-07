@@ -79,9 +79,9 @@ namespace std {
 template<int unique>
 unsigned testing<unique>::count_ = 0;
 
-using test_vector_t = mpd::small_vector<testing<0>, 5, mpd::overflow_behavior_t::silently_truncate>;
-using bigger_vector_t = mpd::small_vector<testing<0>, 7, mpd::overflow_behavior_t::silently_truncate>;
-using alt_test_string_t = mpd::small_vector<testing<1>, 5, mpd::overflow_behavior_t::silently_truncate>;
+using test_vector_t = mpd::svector_local<testing<0>, 5, mpd::overflow_behavior_t::silently_truncate>;
+using bigger_vector_t = mpd::svector_local<testing<0>, 7, mpd::overflow_behavior_t::silently_truncate>;
+using alt_test_string_t = mpd::svector_local<testing<1>, 5, mpd::overflow_behavior_t::silently_truncate>;
 
 struct c_in_it {
 	using value_type = testing<0>;
