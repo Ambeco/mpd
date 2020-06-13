@@ -217,4 +217,31 @@ namespace mpd {
 	{
 		return distance_up_to_n(first, last, max, typename std::iterator_traits<ForwardIt>::iterator_category{});
 	}
+
+	template<class Iterator>
+	static const bool is_nothrow_iteratable =
+		std::is_nothrow_copy_constructible_v<Iterator>
+		&& std::is_nothrow_copy_assignable_v<Iterator>
+		&& noexcept(++std::declval<Iterator&>())
+		&& noexcept(*std::declval<Iterator>())
+		&& noexcept(std::swap(std::declval<Iterator&>(), std::declval<Iterator&>()))
+		&& noexcept(std::declval<const Iterator&>() == std::declval<const Iterator&>())
+		&& noexcept(std::declval<const Iterator&>() != std::declval<const Iterator&>());
+
+	template<class InputIt>
+	static const bool is_nothrow_input_iteratable =
+		is_nothrow_iteratable<InputIt>
+		&& noexcept(std::declval<InputIt&>()++)
+		&& noexcept(std::declval<InputIt>().operator->());
+
+	template<class OutputIt>
+	static const bool is_nothrow_output_iteratable =
+		is_nothrow_iteratable<OutputIt>
+		&& noexcept(std::declval<OutputIt&>()++);
+
+	template<class ForwardIt>
+	static const bool is_nothrow_forward_iteratable =
+		is_nothrow_input_iteratable<ForwardIt>
+		&& is_nothrow_output_iteratable<ForwardIt>
+		&& std::is_nothrow_default_constructible_v<ForwardIt>;
 }
