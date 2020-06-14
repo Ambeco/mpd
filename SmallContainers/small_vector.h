@@ -213,13 +213,18 @@ namespace mpd {
 				size += src_count;
 			}
 			template<class... Us>
-			static constexpr bool append_us_throws = overflow_throws && std::is_constructible<T, Us...>::value;
+			static constexpr bool append1_throws = overflow_throws && std::is_constructible<T, Us...>::value;
 			template<class... Us>
-			static MPD_NOINLINE(void) _emplace(T* buffer, std::size_t& size, std::size_t max_len, Us&&... vs) noexcept(append_us_throws<Us...>) {
-				if (max_length_check(size + 1, max_len - size) > size) {
+			static MPD_NOINLINE(void) _append1(T* buffer, std::size_t& size, std::size_t max_len, Us&&... vs) noexcept(append1_throws<Us...>) {
+				if (max_length_check(size + 1, max_len) <= max_len) {
 					new (buffer + size)T(std::forward<Us>(vs)...);
 					++size;
 				}
+			}
+			static MPD_NOINLINE(void) _pop_back(T* buffer, std::size_t& size) noexcept(true) {
+				assert(size);
+				destroy_at(buffer + size - 1);
+				--size;
 			}
 			template<class ForwardIt, class Out = decltype(*std::declval<ForwardIt>())>
 			static constexpr bool append_fwit_throws = overflow_throws
@@ -492,19 +497,18 @@ namespace mpd {
 			iterator erase(const_iterator first, const_iterator last) noexcept(overflow_throws) {
 				return erase(first, last - first);
 			}
-			void push_back(const T& src) noexcept(overflow_throws) {
-				this->_emplace(data(), this->len_, capacity(), src);
+			void push_back(const T& src) noexcept(this->MPD_TEMPLATE append1_throws<const T&>) {
+				this->_append1(data(), this->len_, capacity(), src);
 			}
-			void push_back(T&& src) noexcept(overflow_throws) {
-				this->_emplace(data(), this->len_, capacity(), std::move(src));
+			void push_back(T&& src) noexcept(this->MPD_TEMPLATE append1_throws<T&&>) {
+				this->_append1(data(), this->len_, capacity(), std::move(src));
 			}
 			template<class...Us>
-			void emplace_back(Us&&... src) noexcept(overflow_throws) {
-				this->_emplace(data(), this->len_, capacity(), std::forward<Us>(src)...);
+			void emplace_back(Us&&... src) noexcept(this->MPD_TEMPLATE append1_throws<Us...>) {
+				this->_append1(data(), this->len_, capacity(), std::forward<Us>(src)...);
 			}
-			void pop_back() noexcept {
-				destroy_at(data() + this->len_ - 1);
-				--(this->len_);
+			void pop_back() noexcept(true) {
+				this->_pop_back(data(), this->len_);
 			}
 
 			void resize(std::size_t src_count) noexcept(this->append_default_throws)

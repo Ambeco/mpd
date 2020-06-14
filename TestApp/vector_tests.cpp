@@ -198,6 +198,7 @@ void test_small_vectors() {
 	test_mutation(L"bcd", v.erase(v.begin()));
 	test_mutation(L"cd", v.erase(v.begin(), v.begin() + 2));
 	test_mutation(L"abcdz", v.push_back('z'));
+	test_mutation(L"abcdz", v.emplace_back('z'));
 	test_mutation(L"abc", v.pop_back());
 	test_mutation(L"ab", v.resize(2));
 	test_mutation(L"abcd1", v.resize(6, '1'));
