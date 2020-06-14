@@ -98,20 +98,20 @@ namespace mpd {
 				destroy(buffer + copy_count, buffer + copy_count + destroy_count);
 				size = src_count;
 			}
-			template<class ForwardIt, class Out = declval(*std::declval<ForwardIt>())>
+			template<class ForwardIt, class Out = decltype(*std::declval<ForwardIt>())>
 			static const bool assign_fwit_throws = overflow_throws
 				&& is_nothrow_forward_iteratable<ForwardIt>
 				&& std::is_nothrow_assignable_v<T, Out>
 				&& std::is_nothrow_constructible_v<T, Out>;
-			template<class InputIt, class Out = declval(*std::declval<InputIt>())>
+			template<class InputIt, class Out = decltype(*std::declval<InputIt>())>
 			static const bool assign_init_throws = overflow_throws
 				&& is_nothrow_forward_iteratable<InputIt>
 				&& std::is_nothrow_assignable_v<T, Out>
 				&& std::is_nothrow_constructible_v<T, Out>;
 			template<class Iterator>
-			static const bool assign_it_throws = std::conditional_t<std::is_base_of_v<std::forward_iterator_tag, Iterator>, assign_fwit_throws, assign_init_throws>;
+			static const bool assign_it_throws = std::is_base_of_v<std::forward_iterator_tag, Iterator> ? assign_fwit_throws<Iterator> : assign_init_throws<Iterator>;
 			template<class ForwardIt>
-			static MPD_NOINLINE(void) _assign(T* buffer, std::size_t& size, std::size_t max_len, ForwardIt src_first, ForwardIt src_last, std::forward_iterator_tag) noexcept(assign_it_throws) {
+			static MPD_NOINLINE(void) _assign(T* buffer, std::size_t& size, std::size_t max_len, ForwardIt src_first, ForwardIt src_last, std::forward_iterator_tag) noexcept(assign_it_throws<ForwardIt>) {
 				std::size_t src_count = distance_up_to_n(src_first, src_last, max_len + 1);
 				src_count = max_length_check(src_count, max_len);
 				std::size_t copy_count = clamp_max(src_count, size);
@@ -123,7 +123,7 @@ namespace mpd {
 				size = src_count;
 			}
 			template<class InputIt>
-			static MPD_NOINLINE(void) _assign(T* buffer, std::size_t& size, std::size_t max_len, InputIt src_first, InputIt src_last, std::input_iterator_tag) noexcept(assign_init_throws) {
+			static MPD_NOINLINE(void) _assign(T* buffer, std::size_t& size, std::size_t max_len, InputIt src_first, InputIt src_last, std::input_iterator_tag) noexcept(assign_init_throws<InputIt>) {
 				auto it1 = copy_up_to_n(src_first, src_last, size, buffer); //TODO: all wrong
 				if (it1.first != src_last) {
 					std::size_t max_ctor_count = max_len - size;
@@ -142,7 +142,7 @@ namespace mpd {
 				&& std::is_nothrow_assignable_v<T, Us...> 
 				&& std::is_nothrow_constructible_v<T, Us...>;
 			template<class... Us>
-			static MPD_NOINLINE(void) _emplace(T* buffer, std::size_t& size, std::size_t max_len, std::size_t dst_idx, Us&&... src) noexcept(emplace_throws) {
+			static MPD_NOINLINE(void) _emplace(T* buffer, std::size_t& size, std::size_t max_len, std::size_t dst_idx, Us&&... src) noexcept(emplace_throws<Us...>) {
 				dst_idx = index_range_check(dst_idx, size);
 				if (dst_idx == size) {
 					new (buffer + size)T(std::forward<Us>(src)...);
@@ -213,7 +213,7 @@ namespace mpd {
 			template<class... Us>
 			static const bool append_us_throws = overflow_throws && std::is_constructible<T, Us...>::value;
 			template<class... Us>
-			static MPD_NOINLINE(void) _emplace(T* buffer, std::size_t& size, std::size_t max_len, Us&&... vs) noexcept(append_us_throws) {
+			static MPD_NOINLINE(void) _emplace(T* buffer, std::size_t& size, std::size_t max_len, Us&&... vs) noexcept(append_us_throws<Us...>) {
 				if (max_length_check(size + 1, max_len - size) > size) {
 					new (buffer + size)T(std::forward<Us>(vs)...);
 					++size;
@@ -228,16 +228,16 @@ namespace mpd {
 				&& is_nothrow_forward_iteratable<InputIt>
 				&& std::is_nothrow_constructible_v<T, Out>;
 			template<class Iterator>
-			static const bool append_it_throws = std::conditional_t<std::is_base_of_v<std::forward_iterator_tag, Iterator>, append_fwit_throws<Iterator>, append_init_throws<Iterator>>;
-			template<class InputIt>
-			static MPD_NOINLINE(void) _append(T* buffer, std::size_t& size, std::size_t max_len, InputIt src_first, InputIt src_last, std::forward_iterator_tag) noexcept(append_fwit_throws) {
+			static const bool append_it_throws = std::is_base_of_v<std::forward_iterator_tag, Iterator> ? append_fwit_throws<Iterator> : append_init_throws<Iterator>;
+			template<class ForwardIt>
+			static MPD_NOINLINE(void) _append(T* buffer, std::size_t& size, std::size_t max_len, ForwardIt src_first, ForwardIt src_last, std::forward_iterator_tag) noexcept(append_fwit_throws<ForwardIt>) {
 				std::size_t src_count = distance_up_to_n(src_first, src_last, max_len + 1);
 				src_count = max_length_check(src_count, max_len - size);
 				src_first = uninitialied_copy_n(src_first, src_count, buffer + size);
 				size += src_count;
 			}
 			template<class InputIt>
-			static MPD_NOINLINE(void) _append(T* buffer, std::size_t& size, std::size_t max_len, InputIt src_first, InputIt src_last, std::output_iterator_tag) noexcept(append_init_throws) {
+			static MPD_NOINLINE(void) _append(T* buffer, std::size_t& size, std::size_t max_len, InputIt src_first, InputIt src_last, std::output_iterator_tag) noexcept(append_init_throws<InputIt>) {
 				auto its = uninitialized_copy_up_to_n(src_first, src_last, max_len - size, buffer + size);
 				size = its.second - buffer;
 				if (its.first != src_last) max_length_check(max_len + 1, max_len);

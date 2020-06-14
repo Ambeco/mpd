@@ -150,7 +150,7 @@ namespace mpd {
 	}
 	template<class InBidirIt, class Size, class OutBidirIt >
 	OutBidirIt uninitialized_copy_backward_n(InBidirIt src_last, Size count, OutBidirIt dest_last) {
-		using T = typename std::iterator_traits<dest_last>::value_type;
+		using T = typename std::iterator_traits<OutBidirIt>::value_type;
 		OutBidirIt init_dest = dest_last;
 		Size i = 0;
 		try {
