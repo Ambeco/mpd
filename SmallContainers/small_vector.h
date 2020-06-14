@@ -157,7 +157,12 @@ namespace mpd {
 				move_backward_n(buffer + dst_idx, keep_count, buffer + dst_idx + 1);
 				buffer[dst_idx] = T(std::forward<Us>(src)...);
 			}
-			static MPD_NOINLINE(void) _insert(T* buffer, std::size_t& size, std::size_t max_len, std::size_t dst_idx, std::size_t src_count, const T& src) noexcept(false) {
+			static constexpr bool insert_value_throws = overflow_throws
+				&& std::is_nothrow_copy_constructible_v<T>
+				&& std::is_nothrow_move_constructible_v<T>
+				&& std::is_nothrow_copy_assignable_v<T>
+				&& std::is_nothrow_move_constructible_v<T>;
+			static MPD_NOINLINE(void) _insert(T* buffer, std::size_t& size, std::size_t max_len, std::size_t dst_idx, std::size_t src_count, const T& src) noexcept(insert_value_throws) {
 				dst_idx = index_range_check(dst_idx, size);
 				std::size_t insert_move_count = clamp_max(src_count, size - dst_idx);
 				std::size_t insert_construct_count = max_length_check(src_count, max_len - dst_idx) - insert_move_count;
@@ -171,8 +176,15 @@ namespace mpd {
 				move_backward_n(buffer + dst_idx + keep_move_count, keep_move_count, buffer + dst_idx + src_count + keep_move_count);
 				std::fill_n(buffer + dst_idx, insert_move_count, src);
 			}
+			template<class ForwardIt, class Out = decltype(*std::declval<ForwardIt>())>
+			static constexpr bool insert_it_throws = overflow_throws
+				&& is_nothrow_forward_iteratable<ForwardIt>
+				&& std::is_nothrow_move_constructible_v<T>
+				&& std::is_nothrow_move_assignable_v<T>
+				&& std::is_nothrow_constructible_v<T, decltype(*std::declval<ForwardIt>())>
+				&& std::is_nothrow_assignable_v<T, decltype(*std::declval<ForwardIt>())>;
 			template<class ForwardIt>
-			static MPD_NOINLINE(void) _insert(T* buffer, std::size_t& size, std::size_t max_len, std::size_t dst_idx, ForwardIt src_first, ForwardIt src_last) noexcept(false) {
+			static MPD_NOINLINE(void) _insert(T* buffer, std::size_t& size, std::size_t max_len, std::size_t dst_idx, ForwardIt src_first, ForwardIt src_last) noexcept(insert_it_throws<ForwardIt>) {
 				dst_idx = index_range_check(dst_idx, size);
 				std::size_t src_count = distance_up_to_n(src_first, src_last, max_len - dst_idx + 1);
 				std::size_t insert_move_count = clamp_max(src_count, size - dst_idx);
@@ -187,7 +199,8 @@ namespace mpd {
 				move_backward_n(buffer + dst_idx + keep_move_count, keep_move_count, buffer + dst_idx + insert_move_count + keep_move_count);
 				std::copy_n(src_first, insert_move_count, buffer + dst_idx);
 			}
-			void _erase(T* buffer, std::size_t& size, std::size_t max_len, std::size_t idx, std::size_t count) noexcept(false) {
+			static constexpr bool erase_throws = std::is_nothrow_move_assignable_v<T>;
+			void _erase(T* buffer, std::size_t& size, std::size_t max_len, std::size_t idx, std::size_t count) noexcept(erase_throws) {
 				idx = index_range_check(idx, size);
 				count = clamp_max(count, size - idx);
 				std::size_t move_count = size - idx - count;
@@ -351,9 +364,8 @@ namespace mpd {
 			using derived = typename storage::derived;
 			using temp_storage = typename storage::temp_storage;
 			using T = typename storage::value_type;
-			static constexpr bool overflow_throws = overflow_behavior != overflow_behavior_t::exception;
 			using impl::small_vector_methods<T, overflow_behavior>::max_length_check;
-			std::size_t max_length_check(std::size_t given) const noexcept(overflow_throws)
+			std::size_t max_length_check(std::size_t given) const noexcept(this->overflow_throws)
 			{
 				return impl::max_length_check<overflow_behavior>(given, capacity());
 			}
@@ -364,11 +376,11 @@ namespace mpd {
 			svector_impl() noexcept(true) {}
 			svector_impl(std::size_t& len, T* data, std::size_t capacity) noexcept(true) : storage(len, data, capacity) { }
 			template<class ForwardIt>
-			void _insert2(std::size_t dst_idx, ForwardIt src_first, ForwardIt src_last, std::forward_iterator_tag) {
+			void _insert2(std::size_t dst_idx, ForwardIt src_first, ForwardIt src_last, std::forward_iterator_tag) noexcept(this->MPD_TEMPLATE insert_it_throws<ForwardIt>) {
 				this->_insert(data(), this->len_, capacity(), dst_idx, src_first, src_last);
 			}
 			template<class InputIt>
-			void _insert2(std::size_t dst_idx, InputIt src_first, InputIt src_last, std::input_iterator_tag) {
+			void _insert2(std::size_t dst_idx, InputIt src_first, InputIt src_last, std::input_iterator_tag) noexcept(this->MPD_TEMPLATE insert_it_throws<InputIt>) {
 				temp_storage temp;
 				temp.reserve(capacity());
 				temp.assign(src_first, src_last);
@@ -389,41 +401,39 @@ namespace mpd {
 			using const_reverse_iterator = std::reverse_iterator<const_iterator>;
 
 			template<class other_storage, overflow_behavior_t other_overflow>
-			derived& operator=(const svector_impl<other_storage, other_overflow>& src) noexcept(overflow_throws)
+			derived& operator=(const svector_impl<other_storage, other_overflow>& src) noexcept(this->MPD_TEMPLATE assign_it_throws<const_iterator>)
 			{
 				return assign(src.begin(), src.end());
 			}
 			template<class other_storage, overflow_behavior_t other_overflow>
-			derived& operator=(svector_impl<other_storage, other_overflow>&& src) noexcept(overflow_throws)
+			derived& operator=(svector_impl<other_storage, other_overflow>&& src) noexcept(this->MPD_TEMPLATE assign_it_throws<std::move_iterator<iterator>)
 			{
 				return assign(std::make_move_iterator(src.begin()), std::make_move_iterator(src.end()));
 			}
-			derived& operator=(std::initializer_list<T> src) noexcept(overflow_throws)
+			derived& operator=(std::initializer_list<T> src) noexcept(this->MPD_TEMPLATE assign_it_throws<std::initializer_list<T>::iterator>)
 			{
 				return assign(src);
 			}
 			template<class alloc>
-			derived& operator=(const std::vector<T, alloc>& src)
-			{
+			derived& operator=(const std::vector<T, alloc>& src) noexcept(this->MPD_TEMPLATE assign_it_throws<std::vector<T, alloc>::const_iterator>) {
 				return assign(src.cbegin(), src.cend());
 			}
 			template<class alloc>
-			derived& operator=(std::vector<T, alloc>&& src)
-			{
+			derived& operator=(std::vector<T, alloc>&& src) noexcept(this->MPD_TEMPLATE assign_it_throws<std::move_iterator<std::vector<T, alloc>::iterator>>) {
 				return assign(std::make_move_iterator(src.begin()), std::make_move_iterator(src.end()));
 			}
-			derived& assign(std::size_t src_count) noexcept(overflow_throws) {
+			derived& assign(std::size_t src_count) noexcept(this->assign_default_throws) {
 				this->_assign(data(), this->len_, capacity(), src_count, do_value_construct); return self();
 			}
-			derived& assign(std::size_t src_count, const T& src) noexcept(overflow_throws) {
+			derived& assign(std::size_t src_count, const T& src) noexcept(this->assign_value_throws) {
 				this->_assign(data(), this->len_, capacity(), src_count, src); return self();
 			}
 			template<class InputIt>
-			derived& assign(InputIt src_first, InputIt src_last) noexcept(overflow_throws) {
+			derived& assign(InputIt src_first, InputIt src_last) noexcept(this->MPD_TEMPLATE assign_it_throws<InputIt>) {
 				this->_assign(data(), this->len_, capacity(), src_first, src_last, typename std::iterator_traits<InputIt>::iterator_category{});
 				return self();
 			}
-			derived& assign(std::initializer_list<T> src) noexcept(overflow_throws) {
+			derived& assign(std::initializer_list<T> src) noexcept(this->MPD_TEMPLATE assign_it_throws<std::initializer_list<T>::iterator>) {
 				return assign(src.begin(), src.end());
 			}
 			allocator_type get_allocator() const noexcept { return {}; }
@@ -454,47 +464,47 @@ namespace mpd {
 
 			bool empty() const noexcept { return this->len_ == 0; }
 			std::size_t size() const noexcept { return this->len_; }
-			void reserve(std::size_t count) const noexcept(overflow_throws) { max_length_check(count); }
+			void reserve(std::size_t count) const noexcept(this->overflow_throws) { max_length_check(count); }
 			using storage::capacity;
 			void shrink_to_fit() noexcept {}
 
 			void clear() noexcept { this->_erase(data(), this->len_, capacity(), 0, this->len_); }
 
-			iterator insert(const_iterator dst, const T& src) noexcept(overflow_throws) {
+			iterator insert(const_iterator dst, const T& src) noexcept(this->MPD_TEMPLATE emplace_throws<const T&>) {
 				this->_emplace(data(), this->len_, capacity(), dst - begin(), src);
 				return (iterator)dst;
 			}
-			iterator insert(const_iterator dst, T&& src) noexcept(overflow_throws) {
+			iterator insert(const_iterator dst, T&& src) noexcept(this->MPD_TEMPLATE emplace_throws<T&&>) {
 				this->_emplace(data(), this->len_, capacity(), dst - begin(), std::move(src));
 				return (iterator)dst;
 			}
-			iterator insert(const_iterator dst, std::size_t src_count, const T& src) noexcept(overflow_throws) {
+			iterator insert(const_iterator dst, std::size_t src_count, const T& src) noexcept(this->insert_value_throws) {
 				this->_insert(data(), this->len_, capacity(), dst - begin(), src_count, src);
 				return (iterator)dst;
 			}
 			template<class InputIt, class category = typename std::iterator_traits<InputIt>::iterator_category>
-			iterator insert(const_iterator dst, InputIt src_first, InputIt src_last) {
+			iterator insert(const_iterator dst, InputIt src_first, InputIt src_last) noexcept(this->MPD_TEMPLATE insert_it_throws<InputIt>) {
 				this->_insert2(dst - begin(), src_first, src_last, typename std::iterator_traits<InputIt>::iterator_category{});
 				return (iterator)dst;
 			}
-			iterator insert(const_iterator dst, std::initializer_list<T> src) noexcept(overflow_throws) {
+			iterator insert(const_iterator dst, std::initializer_list<T> src) noexcept(this->MPD_TEMPLATE insert_it_throws<std::initializer_list<T>::iterator>) {
 				return insert(dst, src.begin(), src.end());
 			}
 			template<class...Us>
-			iterator emplace(const_iterator dst, Us&&... src) noexcept(overflow_throws) {
+			iterator emplace(const_iterator dst, Us&&... src) noexcept(this->MPD_TEMPLATE emplace_throws<Us...>) {
 				this->_emplace(data(), this->len_, capacity(), dst - begin(), std::forward<Us>(src)...);
 				return (iterator)dst;
 			}
 
-			iterator erase(const_iterator dst) noexcept(overflow_throws) {
+			iterator erase(const_iterator dst) noexcept(this->erase_throws) {
 				this->_erase(data(), this->len_, capacity(), dst - cbegin(), 1);
 				return (iterator)dst;
 			}
-			iterator erase(const_iterator dst, std::size_t count) noexcept(overflow_throws) {
+			iterator erase(const_iterator dst, std::size_t count) noexcept(this->erase_throws) {
 				this->_erase(data(), this->len_, capacity(), dst - cbegin(), count);
 				return (iterator)dst;
 			}
-			iterator erase(const_iterator first, const_iterator last) noexcept(overflow_throws) {
+			iterator erase(const_iterator first, const_iterator last) noexcept(this->erase_throws) {
 				return erase(first, last - first);
 			}
 			void push_back(const T& src) noexcept(this->MPD_TEMPLATE append1_throws<const T&>) {
@@ -651,11 +661,11 @@ namespace mpd {
 		using parent = impl::svector_ref<T, overflow_behavior, svector_ref>;
 	public:
 		svector_ref(std::size_t& len, T* data, std::size_t capacity) noexcept(true) : parent(len, data, capacity) { }
-		svector_ref& operator=(const svector_ref& src) noexcept(this->overflow_throws&& std::is_nothrow_copy_constructible<T>::value&& std::is_nothrow_copy_assignable<T>::value)
+		svector_ref& operator=(const svector_ref& src) noexcept(this->assign_it_throws<const T*>)
 		{
 			return this->assign(src.cbegin(), src.cend());
 		}
-		svector_ref& operator=(svector_ref&& src) noexcept(this->overflow_throws&& std::is_nothrow_move_constructible<T>::value&& std::is_nothrow_move_assignable<T>::value)
+		svector_ref& operator=(svector_ref&& src) noexcept(this->assign_it_throws<std::move_iterator<T*>>)
 		{
 			return this->assign(std::make_move_iterator(src.begin()), std::make_move_iterator(src.end()));
 		}
@@ -664,7 +674,6 @@ namespace mpd {
 	template<class T, std::size_t max_len, overflow_behavior_t overflow_behavior = overflow_behavior_t::exception>
 	class svector_local : public impl::svector_local<T, max_len, overflow_behavior, svector_local> {
 		using parent = impl::svector_local<T, max_len, overflow_behavior, svector_local>;
-		using parent::overflow_throws;
 	public:
 		constexpr svector_local() noexcept(true) { this->len_ = 0; }
 		explicit svector_local(std::size_t src_count) noexcept(this->append_default_throws) {
