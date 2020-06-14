@@ -44,15 +44,17 @@ namespace mpd {
 
 #ifdef _MSC_VER
 #define MPD_NOINLINE(T) __declspec(noinline) T
+#define MPD_TEMPLATE
 #else
 #define MPD_NOINLINE(T)	T __attribute__((noinline))
+#define MPD_TEMPLATE template
 #endif
 		using std::swap;
 		//small_vector_methods exists to shrink binary code so that all svector_local use the same binary code regardless of their length
 		//Also most calls pass 'const T*' iterators, again to shrink the binary code. 
 		template<class T, overflow_behavior_t overflow_behavior>
 		struct small_vector_methods {
-			static const bool overflow_throws = overflow_behavior != overflow_behavior_t::exception;
+			static constexpr bool overflow_throws = overflow_behavior != overflow_behavior_t::exception;
 
 			static std::size_t max_length_check(std::size_t given, std::size_t maximum) noexcept(overflow_throws)
 			{
@@ -66,7 +68,7 @@ namespace mpd {
 				if (given > maximum) return maximum;
 				return given;
 			}
-			static const bool assign_default_throws = overflow_throws && std::is_nothrow_copy_assignable_v<T> && std::is_nothrow_default_constructible_v<T>;
+			static constexpr bool assign_default_throws = overflow_throws && std::is_nothrow_copy_assignable_v<T> && std::is_nothrow_default_constructible_v<T>;
 			static MPD_NOINLINE(void) _assign(T* buffer, std::size_t& size, std::size_t max_len, std::size_t src_count, default_not_value_construct_t) noexcept(assign_default_throws) {
 				src_count = max_length_check(src_count, max_len);
 				std::size_t copy_count = clamp_max(src_count, size);
@@ -87,7 +89,7 @@ namespace mpd {
 				destroy(buffer + copy_count, buffer + copy_count + destroy_count);
 				size = src_count;
 			}
-			static const bool assign_value_throws = overflow_throws && std::is_nothrow_copy_assignable<T>::value && std::is_nothrow_constructible<T, const T&>::value;
+			static constexpr bool assign_value_throws = overflow_throws && std::is_nothrow_copy_assignable<T>::value && std::is_nothrow_constructible<T, const T&>::value;
 			static MPD_NOINLINE(void) _assign(T* buffer, std::size_t& size, std::size_t max_len, std::size_t src_count, const T& src) noexcept(assign_value_throws) {
 				src_count = max_length_check(src_count, max_len);
 				std::size_t copy_count = clamp_max(src_count, size);
@@ -99,17 +101,17 @@ namespace mpd {
 				size = src_count;
 			}
 			template<class ForwardIt, class Out = decltype(*std::declval<ForwardIt>())>
-			static const bool assign_fwit_throws = overflow_throws
+			static constexpr bool assign_fwit_throws = overflow_throws
 				&& is_nothrow_forward_iteratable<ForwardIt>
 				&& std::is_nothrow_assignable_v<T, Out>
 				&& std::is_nothrow_constructible_v<T, Out>;
 			template<class InputIt, class Out = decltype(*std::declval<InputIt>())>
-			static const bool assign_init_throws = overflow_throws
+			static constexpr bool assign_init_throws = overflow_throws
 				&& is_nothrow_forward_iteratable<InputIt>
 				&& std::is_nothrow_assignable_v<T, Out>
 				&& std::is_nothrow_constructible_v<T, Out>;
 			template<class Iterator>
-			static const bool assign_it_throws = std::is_base_of_v<std::forward_iterator_tag, Iterator> ? assign_fwit_throws<Iterator> : assign_init_throws<Iterator>;
+			static constexpr bool assign_it_throws = std::is_base_of_v<std::forward_iterator_tag, typename std::iterator_traits<Iterator>::iterator_category> ? assign_fwit_throws<Iterator> : assign_init_throws<Iterator>;
 			template<class ForwardIt>
 			static MPD_NOINLINE(void) _assign(T* buffer, std::size_t& size, std::size_t max_len, ForwardIt src_first, ForwardIt src_last, std::forward_iterator_tag) noexcept(assign_it_throws<ForwardIt>) {
 				std::size_t src_count = distance_up_to_n(src_first, src_last, max_len + 1);
@@ -136,7 +138,7 @@ namespace mpd {
 				}
 			}
 			template<class...Us>
-			static const bool emplace_throws = overflow_throws 
+			static constexpr bool emplace_throws = overflow_throws 
 				&& std::is_nothrow_assignable_v<T> 
 				&& std::is_nothrow_constructible_v<T> 
 				&& std::is_nothrow_assignable_v<T, Us...> 
@@ -193,7 +195,7 @@ namespace mpd {
 				destroy(buffer + size - count, buffer + size);
 				size -= count;
 			}
-			static const bool append_default_throws = overflow_throws && std::is_nothrow_default_constructible<T>::value;
+			static constexpr bool append_default_throws = overflow_throws && std::is_nothrow_default_constructible<T>::value;
 			static MPD_NOINLINE(void) _append(T* buffer, std::size_t& size, std::size_t max_len, std::size_t src_count, default_not_value_construct_t) noexcept(assign_default_throws) {
 				src_count = max_length_check(src_count, max_len - size);
 				uninitialized_default_construct(buffer + size, src_count);
@@ -204,14 +206,14 @@ namespace mpd {
 				uninitialized_value_construct_n(buffer + size, src_count);
 				size += src_count;
 			}
-			static const bool append_value_throws = overflow_throws && std::is_nothrow_constructible<T, const T&>::value;
+			static constexpr bool append_value_throws = overflow_throws && std::is_nothrow_constructible<T, const T&>::value;
 			static MPD_NOINLINE(void) _append(T* buffer, std::size_t& size, std::size_t max_len, std::size_t src_count, const T& src) noexcept(append_value_throws) {
 				src_count = max_length_check(src_count, max_len - size);
 				std::uninitialized_fill_n(buffer + size, src_count, src);
 				size += src_count;
 			}
 			template<class... Us>
-			static const bool append_us_throws = overflow_throws && std::is_constructible<T, Us...>::value;
+			static constexpr bool append_us_throws = overflow_throws && std::is_constructible<T, Us...>::value;
 			template<class... Us>
 			static MPD_NOINLINE(void) _emplace(T* buffer, std::size_t& size, std::size_t max_len, Us&&... vs) noexcept(append_us_throws<Us...>) {
 				if (max_length_check(size + 1, max_len - size) > size) {
@@ -220,24 +222,24 @@ namespace mpd {
 				}
 			}
 			template<class ForwardIt, class Out = decltype(*std::declval<ForwardIt>())>
-			static const bool append_fwit_throws = overflow_throws
+			static constexpr bool append_fwit_throws = overflow_throws
 				&& is_nothrow_forward_iteratable<ForwardIt>
 				&& std::is_nothrow_constructible_v<T, Out>;
 			template<class InputIt, class Out = decltype(*std::declval<InputIt>())>
-			static const bool append_init_throws = overflow_throws
+			static constexpr bool append_init_throws = overflow_throws
 				&& is_nothrow_forward_iteratable<InputIt>
 				&& std::is_nothrow_constructible_v<T, Out>;
 			template<class Iterator>
-			static const bool append_it_throws = std::is_base_of_v<std::forward_iterator_tag, Iterator> ? append_fwit_throws<Iterator> : append_init_throws<Iterator>;
+			static constexpr bool append_it_throws = std::is_base_of_v<std::forward_iterator_tag, typename std::iterator_traits<Iterator>::iterator_category> ? append_fwit_throws<Iterator> : append_init_throws<Iterator>;
 			template<class ForwardIt>
 			static MPD_NOINLINE(void) _append(T* buffer, std::size_t& size, std::size_t max_len, ForwardIt src_first, ForwardIt src_last, std::forward_iterator_tag) noexcept(append_fwit_throws<ForwardIt>) {
 				std::size_t src_count = distance_up_to_n(src_first, src_last, max_len + 1);
 				src_count = max_length_check(src_count, max_len - size);
-				src_first = uninitialied_copy_n(src_first, src_count, buffer + size);
+				src_first = uninitialized_copy_n(src_first, src_count, buffer + size);
 				size += src_count;
 			}
 			template<class InputIt>
-			static MPD_NOINLINE(void) _append(T* buffer, std::size_t& size, std::size_t max_len, InputIt src_first, InputIt src_last, std::output_iterator_tag) noexcept(append_init_throws<InputIt>) {
+			static MPD_NOINLINE(void) _append(T* buffer, std::size_t& size, std::size_t max_len, InputIt src_first, InputIt src_last, std::input_iterator_tag) noexcept(append_init_throws<InputIt>) {
 				auto its = uninitialized_copy_up_to_n(src_first, src_last, max_len - size, buffer + size);
 				size = its.second - buffer;
 				if (its.first != src_last) max_length_check(max_len + 1, max_len);
@@ -247,7 +249,7 @@ namespace mpd {
 				src_count = std::min(src_count, size - src_idx);
 				dest = std::copy_n(buffer + src_idx, src_count, dest);
 			}
-			static const bool equals_throws = noexcept(std::declval<T>() == std::declval<T>());
+			static constexpr bool equals_throws = noexcept(std::declval<T>() == std::declval<T>());
 			static MPD_NOINLINE(bool) _equals(const T* buffer, std::size_t size, const T* other, std::size_t other_size) noexcept(equals_throws) {
 				if (size != other_size) return false;
 				for (std::size_t i = 0; i < size; i++) {
@@ -256,7 +258,7 @@ namespace mpd {
 				}
 				return true;
 			}
-			static const bool not_equals_throws = noexcept(std::declval<T>() != std::declval<T>());
+			static constexpr bool not_equals_throws = noexcept(std::declval<T>() != std::declval<T>());
 			static MPD_NOINLINE(bool) _notequals(const T* buffer, std::size_t size, const T* other, std::size_t other_size) noexcept(not_equals_throws) {
 				if (size != other_size) return true;
 				for (std::size_t i = 0; i < size; i++) {
@@ -266,7 +268,7 @@ namespace mpd {
 				return false;
 			}
 			template<class ItemComp, class LenComp>
-			static const bool compare_throws = noexcept(std::declval<ItemComp>(std::declval<const T&>(), std::declval<const T&>()) && LenComp(0, 0));
+			static constexpr bool compare_throws = noexcept(std::declval<ItemComp>()(std::declval<const T&>(), std::declval<const T&>()) && std::declval<LenComp>()(0, 0));
 			template<class ItemComp, class LenComp>
 			static MPD_NOINLINE(bool) _compare(const T* buffer, std::size_t size, const T* other, std::size_t other_size, ItemComp op, LenComp lenComp) noexcept(compare_throws<ItemComp, LenComp>){
 				std::size_t cmp_count = std::min(size, other_size);
@@ -283,12 +285,12 @@ namespace mpd {
 				return std::remove(buffer, buffer + size, value);
 			}
 			template<class Pred>
-			static const bool remove_if_throws = noexcept(std::declval<Pred>(std::declval<const T&>()));
+			static constexpr bool remove_if_throws = noexcept(std::declval<Pred>(std::declval<const T&>()));
 			template<class Pred>
 			static MPD_NOINLINE(const T*) _remove_if(T* buffer, std::size_t& size, Pred&& predicate) noexcept(remove_if_throws<Pred>){
 				return std::remove_if(buffer, buffer + size, std::forward<Pred>(predicate));
 			}
-			static const bool swap_throws = overflow_throws && std::is_nothrow_move_constructible<T>::value && noexcept(swap(std::declval<T&>(), std::declval<T&>()));
+			static constexpr bool swap_throws = overflow_throws && std::is_nothrow_move_constructible<T>::value && noexcept(swap(std::declval<T&>(), std::declval<T&>()));
 			static MPD_NOINLINE(void) _swap(T* buffer, std::size_t& size, std::size_t max_len, T* src_first, std::size_t& other_size, std::size_t other_max) noexcept(swap_throws) {
 				if (size > other_size) {
 					_swap(src_first, other_size, other_max, buffer, size, max_len);
@@ -344,7 +346,7 @@ namespace mpd {
 			using derived = typename storage::derived;
 			using temp_storage = typename storage::temp_storage;
 			using T = typename storage::value_type;
-			static const bool overflow_throws = overflow_behavior != overflow_behavior_t::exception;
+			static constexpr bool overflow_throws = overflow_behavior != overflow_behavior_t::exception;
 			using impl::small_vector_methods<T, overflow_behavior>::max_length_check;
 			std::size_t max_length_check(std::size_t given) const noexcept(overflow_throws)
 			{
@@ -666,46 +668,46 @@ namespace mpd {
 			this->_append(this->data(), this->len_, this->capacity(), src_count, do_value_construct);
 		}
 		explicit svector_local(std::size_t src_count, default_not_value_construct_t def_ctor) noexcept(this->append_default_throws) {
-			this->_append(this->data(), this->len_, this->capacity(), src_count, def_ctor); return *this;
+			this->_append(this->data(), this->len_, this->capacity(), src_count, def_ctor);
 		}
 		explicit svector_local(std::size_t src_count, const T& src) noexcept(this->append_value_throws) {
 			this->_append(this->data(), this->len_, this->capacity(), src_count, src);
 		}
-		explicit constexpr svector_local(const svector_local& src) noexcept(this->append_it_throws<const T*>) {
+		explicit constexpr svector_local(const svector_local& src) noexcept(this->MPD_TEMPLATE append_it_throws<typename svector_local::const_iterator>) {
 			this->_append(this->data(), this->len_, this->capacity(), src.begin(), src.end(), std::random_access_iterator_tag{});
 		}
-		explicit constexpr svector_local(svector_local&& src) noexcept(this->append_it_throws<std::move_iterator<T*>>) {
+		explicit constexpr svector_local(svector_local&& src) noexcept(this->MPD_TEMPLATE append_it_throws<std::move_iterator<typename svector_local::iterator>>) {
 			this->_append(this->data(), this->len_, this->capacity(), std::make_move_iterator(src.begin()), std::make_move_iterator(src.end()), std::random_access_iterator_tag{});
 		}
 		template<class other_storage, overflow_behavior_t other_overflow>
-		explicit constexpr svector_local(const impl::svector_impl<other_storage, other_overflow>& src) noexcept(this->append_it_throws<const T*>) {
+		explicit constexpr svector_local(const impl::svector_impl<other_storage, other_overflow>& src) noexcept(this->MPD_TEMPLATE append_it_throws<const T*>) {
 			this->_append(this->data(), this->len_, this->capacity(), src.begin(), src.end(), std::random_access_iterator_tag{});
 		}
 		template<class other_storage, overflow_behavior_t other_overflow>
-		explicit constexpr svector_local(impl::svector_impl<other_storage, other_overflow>&& src) noexcept(this->append_it_throws<std::move_iterator<T*>>) {
+		explicit constexpr svector_local(impl::svector_impl<other_storage, other_overflow>&& src) noexcept(this->MPD_TEMPLATE append_it_throws<std::move_iterator<T*>>) {
 			this->_append(this->data(), this->len_, this->capacity(), std::make_move_iterator(src.begin()), std::make_move_iterator(src.end()), std::random_access_iterator_tag{});
 		}
 		template<class InputIt>
-		explicit svector_local(InputIt src_first, InputIt src_last) noexcept(this->append_it_throws<InputIt>) {
+		explicit svector_local(InputIt src_first, InputIt src_last) noexcept(this->MPD_TEMPLATE append_it_throws<InputIt>) {
 			this->_append(this->data(), this->len_, this->capacity(), src_first, src_last, typename std::iterator_traits<InputIt>::iterator_category{});
 		}
-		constexpr svector_local(std::initializer_list<T> src) noexcept(this->append_it_throws<std::initializer_list<T>::iterator>) {
+		constexpr svector_local(std::initializer_list<T> src) noexcept(this->MPD_TEMPLATE append_it_throws<std::initializer_list<T>::iterator>) {
 			this->_append(this->data(), this->len_, this->capacity(), src.begin(), src.end(), std::random_access_iterator_tag{});
 		}
 		template<class alloc>
-		explicit svector_local(const std::vector<T, alloc>& src) noexcept(this->append_it_throws<std::vector<T, alloc>::const_iterator>) {
+		explicit svector_local(const std::vector<T, alloc>& src) noexcept(this->MPD_TEMPLATE append_it_throws<std::vector<T, alloc>::const_iterator>) {
 			this->_append(this->data(), this->len_, this->capacity(), src.data(), src.data() + src.size(), std::random_access_iterator_tag{});
 		}
 		template<class U, class alloc>
-		explicit svector_local(std::vector<U, alloc>&& src) noexcept(this->append_it_throws<std::move_iterator<std::vector<T, alloc>::iterator>>) {
+		explicit svector_local(std::vector<U, alloc>&& src) noexcept(this->MPD_TEMPLATE append_it_throws<std::move_iterator<typename std::vector<T, alloc>::iterator>>) {
 			this->_append(this->data(), this->len_, this->capacity(), std::make_move_iterator(src.begin()), std::make_move_iterator(src.end()), std::random_access_iterator_tag{});
 		}
 		~svector_local() { this->clear(); }
-		svector_local& operator=(const svector_local& src) noexcept(this->assign_it_throws<svector_local::const_iterator>)
+		svector_local& operator=(const svector_local& src) noexcept(this->MPD_TEMPLATE assign_it_throws<typename svector_local::const_iterator>)
 		{
 			return this->assign(src.cbegin(), src.cend());
 		}
-		svector_local& operator=(svector_local&& src) noexcept(this->assign_it_throws<std::move_iterator<svector_local::iterator>>)
+		svector_local& operator=(svector_local&& src) noexcept(this->MPD_TEMPLATE assign_it_throws<std::move_iterator<typename svector_local::iterator>>)
 		{
 			return this->assign(std::make_move_iterator(src.begin()), std::make_move_iterator(src.end()));
 		}
@@ -716,7 +718,7 @@ namespace mpd {
 }
 namespace std {
 	MPD_SVECTOR_TWO_TEMPLATE
-	void swap(mpd::impl::svector_impl<storage, behavior>& lhs, mpd::impl::svector_impl<other_storage, other_behavior>& rhs) noexcept(lhs.swap(rhs)) {
+	void swap(mpd::impl::svector_impl<storage, behavior>& lhs, mpd::impl::svector_impl<other_storage, other_behavior>& rhs) noexcept(mpd::impl::svector_impl<storage, behavior>::swap_throws) {
 		lhs.swap(rhs);
 	}
 	template<class T, std::size_t max_len, mpd::overflow_behavior_t behavior>

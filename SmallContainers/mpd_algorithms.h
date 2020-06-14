@@ -82,7 +82,7 @@ namespace mpd {
 		}
 	}
 	template< class InputIt, class OutputIt >
-	void uninitialized_move_n(InputIt source, std::size_t count, OutputIt dest) {
+	InputIt uninitialized_copy_n(InputIt source, std::size_t count, OutputIt dest) {
 		using Value = typename std::iterator_traits<OutputIt>::value_type;
 		OutputIt initial = dest;
 		try {
@@ -91,6 +91,24 @@ namespace mpd {
 				++source;
 				++dest;
 			}
+			return source;
+		}
+		catch (...) {
+			destroy(initial, dest);
+			throw;
+		}
+	}
+	template< class InputIt, class OutputIt >
+	InputIt uninitialized_move_n(InputIt source, std::size_t count, OutputIt dest) {
+		using Value = typename std::iterator_traits<OutputIt>::value_type;
+		OutputIt initial = dest;
+		try {
+			for (std::size_t i = 0; i < count; i++) {
+				::new (static_cast<void*>(std::addressof(*dest))) Value(std::move(*source));
+				++source;
+				++dest;
+			}
+			return source;
 		}
 		catch (...) {
 			destroy(initial, dest);
@@ -219,7 +237,7 @@ namespace mpd {
 	}
 
 	template<class Iterator>
-	static const bool is_nothrow_iteratable =
+	static constexpr bool is_nothrow_iteratable =
 		std::is_nothrow_copy_constructible_v<Iterator>
 		&& std::is_nothrow_copy_assignable_v<Iterator>
 		&& noexcept(++std::declval<Iterator&>())
@@ -229,18 +247,18 @@ namespace mpd {
 		&& noexcept(std::declval<const Iterator&>() != std::declval<const Iterator&>());
 
 	template<class InputIt>
-	static const bool is_nothrow_input_iteratable =
+	static constexpr bool is_nothrow_input_iteratable =
 		is_nothrow_iteratable<InputIt>
-		&& noexcept(std::declval<InputIt&>()++)
-		&& noexcept(std::declval<InputIt>().operator->());
+		&& noexcept(std::declval<InputIt&>()++);
+		//&& noexcept(std::declval<InputIt>().operator->());
 
 	template<class OutputIt>
-	static const bool is_nothrow_output_iteratable =
+	static constexpr bool is_nothrow_output_iteratable =
 		is_nothrow_iteratable<OutputIt>
 		&& noexcept(std::declval<OutputIt&>()++);
 
 	template<class ForwardIt>
-	static const bool is_nothrow_forward_iteratable =
+	static constexpr bool is_nothrow_forward_iteratable =
 		is_nothrow_input_iteratable<ForwardIt>
 		&& is_nothrow_output_iteratable<ForwardIt>
 		&& std::is_nothrow_default_constructible_v<ForwardIt>;
