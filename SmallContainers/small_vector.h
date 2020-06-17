@@ -52,14 +52,8 @@ namespace mpd {
 		using std::swap;
 		//small_vector_methods exists to shrink binary code so that all svector_local use the same binary code regardless of their length
 		//Also most calls pass 'const T*' iterators, again to shrink the binary code. 
-		template<class T, overflow_behavior_t overflow_behavior>
-		struct small_vector_methods {
-			static constexpr bool overflow_throws = overflow_behavior != overflow_behavior_t::exception;
-
-			static std::size_t max_length_check(std::size_t given, std::size_t maximum) noexcept(overflow_throws)
-			{
-				return impl::max_length_check<overflow_behavior>(given, maximum);
-			}
+		template<class T>
+		struct small_vector_methods_unchecked {
 			static std::size_t index_range_check(std::size_t given, std::size_t maximum) noexcept(false) {
 				if (given > maximum) throw std::out_of_range(std::to_string(given) + " is an invalid index");
 				return given;
@@ -68,9 +62,8 @@ namespace mpd {
 				if (given > maximum) return maximum;
 				return given;
 			}
-			static constexpr bool assign_default_throws = overflow_throws && std::is_nothrow_copy_assignable_v<T> && std::is_nothrow_default_constructible_v<T>;
-			static MPD_NOINLINE(void) _assign(T* buffer, std::size_t& size, std::size_t max_len, std::size_t src_count, default_not_value_construct_t) noexcept(assign_default_throws) {
-				src_count = max_length_check(src_count, max_len);
+			static constexpr bool assign_default_throws = std::is_nothrow_copy_assignable_v<T> && std::is_nothrow_default_constructible_v<T>;
+			static MPD_NOINLINE(void) _assign_unchecked(T* buffer, std::size_t& size, std::size_t max_len, std::size_t src_count, default_not_value_construct_t) noexcept(assign_default_throws) {
 				std::size_t copy_count = clamp_max(src_count, size);
 				std::size_t insert_count = src_count > size ? src_count - copy_count : 0;
 				std::size_t destroy_count = src_count < size ? src_count - copy_count : 0;
@@ -79,8 +72,7 @@ namespace mpd {
 				destroy(buffer + copy_count, buffer + copy_count + destroy_count);
 				size = src_count;
 			}
-			static MPD_NOINLINE(void) _assign(T* buffer, std::size_t& size, std::size_t max_len, std::size_t src_count, do_value_construct_t) noexcept(assign_default_throws) {
-				src_count = max_length_check(src_count, max_len);
+			static MPD_NOINLINE(void) _assign_unchecked(T* buffer, std::size_t& size, std::size_t max_len, std::size_t src_count, do_value_construct_t) noexcept(assign_default_throws) {
 				std::size_t copy_count = clamp_max(src_count, size);
 				std::size_t insert_count = src_count > size ? src_count - copy_count : 0;
 				std::size_t destroy_count = src_count < size ? src_count - copy_count : 0;
@@ -89,9 +81,8 @@ namespace mpd {
 				destroy(buffer + copy_count, buffer + copy_count + destroy_count);
 				size = src_count;
 			}
-			static constexpr bool assign_value_throws = overflow_throws && std::is_nothrow_copy_assignable<T>::value && std::is_nothrow_constructible<T, const T&>::value;
-			static MPD_NOINLINE(void) _assign(T* buffer, std::size_t& size, std::size_t max_len, std::size_t src_count, const T& src) noexcept(assign_value_throws) {
-				src_count = max_length_check(src_count, max_len);
+			static constexpr bool assign_value_throws = std::is_nothrow_copy_assignable<T>::value && std::is_nothrow_constructible<T, const T&>::value;
+			static MPD_NOINLINE(void) _assign_unchecked(T* buffer, std::size_t& size, std::size_t max_len, std::size_t src_count, const T& src) noexcept(assign_value_throws) {
 				std::size_t copy_count = clamp_max(src_count, size);
 				std::size_t insert_count = src_count > size ? src_count - copy_count : 0;
 				std::size_t destroy_count = src_count < size ? src_count - copy_count : 0;
@@ -99,6 +90,33 @@ namespace mpd {
 				std::uninitialized_fill_n(buffer + copy_count, insert_count, src);
 				destroy(buffer + copy_count, buffer + copy_count + destroy_count);
 				size = src_count;
+			}
+		};
+		template<class T, overflow_behavior_t overflow_behavior>
+		struct small_vector_methods: public small_vector_methods_unchecked<T> {
+			static constexpr bool overflow_throws = overflow_behavior != overflow_behavior_t::exception;
+
+			static std::size_t max_length_check(std::size_t given, std::size_t maximum) noexcept(overflow_throws)
+			{
+				return impl::max_length_check<overflow_behavior>(given, maximum);
+			}
+			static std::size_t index_range_check(std::size_t given, std::size_t maximum) noexcept(false) 
+			{ return small_vector_methods_unchecked<T>::index_range_check(given, maximum); }
+			static std::size_t clamp_max(std::size_t given, std::size_t maximum) noexcept 
+			{ return small_vector_methods_unchecked<T>::clamp_max(given, maximum); }
+			static constexpr bool assign_default_throws = small_vector_methods_unchecked<T>::assign_default_throws;
+			static void _assign(T* buffer, std::size_t& size, std::size_t max_len, std::size_t src_count, default_not_value_construct_t ctor) noexcept(overflow_throws && assign_default_throws) {
+				src_count = max_length_check(src_count, max_len);
+				small_vector_methods_unchecked<T>::_assign_unchecked(buffer, size, max_len, src_count, ctor);
+			}
+			static void _assign(T* buffer, std::size_t& size, std::size_t max_len, std::size_t src_count, do_value_construct_t ctor) noexcept(overflow_throws && assign_default_throws) {
+				src_count = max_length_check(src_count, max_len);
+				small_vector_methods_unchecked<T>::_assign_unchecked(buffer, size, max_len, src_count, ctor);
+			}
+			static constexpr bool assign_value_throws = small_vector_methods_unchecked<T>::assign_value_throws;
+			static void _assign(T* buffer, std::size_t& size, std::size_t max_len, std::size_t src_count, const T& src) noexcept(overflow_throws && assign_value_throws) {
+				src_count = max_length_check(src_count, max_len);
+				small_vector_methods_unchecked<T>::_assign_unchecked(buffer, size, max_len, src_count, src);
 			}
 			template<class ForwardIt, class Out = decltype(*std::declval<ForwardIt>())>
 			static constexpr bool assign_fwit_throws = overflow_throws
@@ -132,16 +150,17 @@ namespace mpd {
 					auto it2 = uninitialized_copy_up_to_n(it1.first, src_last, max_ctor_count, it1.second);
 					size = it2.second - buffer;
 					if (it2.first != src_last) max_length_check(max_len + 1, max_len);
-				} else {
+				}
+				else {
 					destroy(it1.second, buffer + size);
 					size = it1.second - buffer;
 				}
 			}
 			template<class...Us>
-			static constexpr bool emplace_throws = overflow_throws 
-				&& std::is_nothrow_assignable_v<T> 
-				&& std::is_nothrow_constructible_v<T> 
-				&& std::is_nothrow_assignable_v<T, Us...> 
+			static constexpr bool emplace_throws = overflow_throws
+				&& std::is_nothrow_assignable_v<T>
+				&& std::is_nothrow_constructible_v<T>
+				&& std::is_nothrow_assignable_v<T, Us...>
 				&& std::is_nothrow_constructible_v<T, Us...>;
 			template<class... Us>
 			static MPD_NOINLINE(void) _emplace(T* buffer, std::size_t& size, std::size_t max_len, std::size_t dst_idx, Us&&... src) noexcept(emplace_throws<Us...>) {
@@ -209,7 +228,7 @@ namespace mpd {
 				size -= count;
 			}
 			static constexpr bool append_default_throws = overflow_throws && std::is_nothrow_default_constructible<T>::value;
-			static MPD_NOINLINE(void) _append(T* buffer, std::size_t& size, std::size_t max_len, std::size_t src_count, default_not_value_construct_t) noexcept(assign_default_throws) {
+			static MPD_NOINLINE(void) _append(T* buffer, std::size_t& size, std::size_t max_len, std::size_t src_count, default_not_value_construct_t) noexcept(append_default_throws) {
 				src_count = max_length_check(src_count, max_len - size);
 				uninitialized_default_construct(buffer + size, src_count);
 				size += src_count;
@@ -288,7 +307,7 @@ namespace mpd {
 			template<class ItemComp, class LenComp>
 			static constexpr bool compare_throws = noexcept(std::declval<ItemComp>()(std::declval<const T&>(), std::declval<const T&>()) && std::declval<LenComp>()(0, 0));
 			template<class ItemComp, class LenComp>
-			static MPD_NOINLINE(bool) _compare(const T* buffer, std::size_t size, const T* other, std::size_t other_size, ItemComp op, LenComp lenComp) noexcept(compare_throws<ItemComp, LenComp>){
+			static MPD_NOINLINE(bool) _compare(const T* buffer, std::size_t size, const T* other, std::size_t other_size, ItemComp op, LenComp lenComp) noexcept(compare_throws<ItemComp, LenComp>) {
 				std::size_t cmp_count = std::min(size, other_size);
 				for (std::size_t i = 0; i < cmp_count; i++) {
 					if (op(buffer[i], other[i]))
@@ -305,7 +324,7 @@ namespace mpd {
 			template<class Pred>
 			static constexpr bool remove_if_throws = noexcept(std::declval<Pred>(std::declval<const T&>()));
 			template<class Pred>
-			static MPD_NOINLINE(const T*) _remove_if(T* buffer, std::size_t& size, Pred&& predicate) noexcept(remove_if_throws<Pred>){
+			static MPD_NOINLINE(const T*) _remove_if(T* buffer, std::size_t& size, Pred&& predicate) noexcept(remove_if_throws<Pred>) {
 				return std::remove_if(buffer, buffer + size, std::forward<Pred>(predicate));
 			}
 			static constexpr bool swap_throws = overflow_throws && std::is_nothrow_move_constructible<T>::value && noexcept(swap(std::declval<T&>(), std::declval<T&>()));
