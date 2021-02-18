@@ -1,5 +1,5 @@
 #define MPD_SSTRING_OVERRUN_CHECKS
-#include "../SmallContainers/small_string.h"
+#include "../SmallContainers/small_string.hpp"
 #include <functional>
 #include <iostream>
 #include <sstream>

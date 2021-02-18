@@ -10,8 +10,8 @@
 #include <memory>
 #include <string>
 #include <stdexcept>
-#include "mpd_algorithms.h"
-#include "small_vector.h"
+#include "mpd_algorithms.hpp"
+#include "small_vector.hpp"
 
 //inspired by https://codereview.stackexchange.com/questions/148757/short-string-class
 namespace mpd {

@@ -1,5 +1,5 @@
 #define MPD_SVEVTOR_OVERRUN_CHECKS
-#include "../SmallContainers/small_vector.h"
+#include "../SmallContainers/small_vector.hpp"
 #include <functional>
 #include <iostream>
 #include <sstream>

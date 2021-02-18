@@ -15,19 +15,25 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="targetver.h">
+    <ClInclude Include="pimpl.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="stack_allocator.h">
+    <ClInclude Include="mpd_algorithms.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="small_string.h">
+    <ClInclude Include="small_string.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="small_vector.h">
+    <ClInclude Include="small_vector.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="mpd_algorithms.h">
+    <ClInclude Include="stack_allocator.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="targetver.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="erasable.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

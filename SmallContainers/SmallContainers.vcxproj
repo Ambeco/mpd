@@ -147,11 +147,13 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="mpd_algorithms.h" />
-    <ClInclude Include="small_string.h" />
-    <ClInclude Include="small_vector.h" />
-    <ClInclude Include="stack_allocator.h" />
-    <ClInclude Include="targetver.h" />
+    <ClInclude Include="erasable.hpp" />
+    <ClInclude Include="mpd_algorithms.hpp" />
+    <ClInclude Include="pimpl.hpp" />
+    <ClInclude Include="small_string.hpp" />
+    <ClInclude Include="small_vector.hpp" />
+    <ClInclude Include="stack_allocator.hpp" />
+    <ClInclude Include="targetver.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
