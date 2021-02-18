@@ -7,7 +7,7 @@
 #include <string>
 #include <type_traits>
 #include <vector>
-#include "mpd_algorithms.h"
+#include "mpd_algorithms.hpp"
 
 //inspired by https://codereview.stackexchange.com/questions/148757/short-string-class
 namespace mpd {
