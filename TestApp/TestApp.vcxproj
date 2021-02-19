@@ -82,6 +82,7 @@
       <EnforceTypeConversionRules>true</EnforceTypeConversionRules>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <PreprocessorDefinitions>_MBCS;%(PreprocessorDefinitions);_ALLOW_RTCc_IN_STL</PreprocessorDefinitions>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
@@ -128,6 +129,8 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="..\SmallContainers\main.cpp" />
+    <ClCompile Include="erasable_tests.cpp" />
+    <ClCompile Include="pimpl_tests.cpp" />
     <ClCompile Include="string_tests.cpp" />
     <ClCompile Include="vector_tests.cpp" />
   </ItemGroup>
