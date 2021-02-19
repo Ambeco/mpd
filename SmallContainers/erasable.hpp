@@ -130,23 +130,21 @@ namespace mpd {
             else emplace(std::move(rhs));
             return *this;
         }
-        constexpr erasable& operator=(std::nullopt_t) { reset(); }
-        constexpr erasable& operator=(std::nullptr_t) { reset(); }
+        constexpr erasable& operator=(std::nullopt_t) { reset(); return *this; }
+        constexpr erasable& operator=(std::nullptr_t) { reset(); return *this; }
         ~erasable() { reset(); }
-        constexpr Interface* operator->() noexcept { return ptr ? ptr->get() : nullptr; }
-        constexpr const Interface* operator->() const noexcept { return ptr ? ptr->get() : nullptr; }
+        constexpr Interface* operator->() noexcept { return ptr->get(); }
+        constexpr const Interface* operator->() const noexcept { return ptr->get(); }
         constexpr Interface& operator*() noexcept { assert(ptr); return *(ptr->get()); }
         constexpr const Interface& operator*() const noexcept { assert(ptr); return *(ptr->get()); }
         constexpr explicit operator bool() const noexcept { return ptr != nullptr; }
         constexpr Interface* get() noexcept { return ptr ? ptr->get() : nullptr; }
         constexpr const Interface* get() const noexcept { return ptr ? ptr->get() : nullptr; }
-        constexpr bool has_value() noexcept { return ptr != nullptr; }
+        constexpr bool has_value() const noexcept { return ptr != nullptr; }
         constexpr Interface& value() noexcept { assert(ptr); return *(ptr->get()); }
         constexpr const Interface& value() const noexcept { assert(ptr); return *(ptr->get()); }
-        template<class Impl>
-        constexpr Interface& value_or(Impl& impl) noexcept { return ptr ? *(ptr->get()) : impl; }
-        template<class Impl>
-        constexpr const Interface& value_or(Impl& impl) const noexcept { return ptr ? *(ptr->get()) : impl; }
+        constexpr Interface& value_or(Interface& impl) noexcept {return ptr ? *(ptr->get()) : impl;}
+        constexpr const Interface& value_or(const Interface& impl) const noexcept { return ptr ? *(ptr->get()) : impl; }
         constexpr void swap(erasable& other) {
             if (ptr && ptr->swap(other.ptr)) return;
             else if (other.ptr && ptr) std::swap(*this, other);
@@ -165,6 +163,75 @@ namespace mpd {
     };
     template<class Interface, std::size_t buffer_size, std::size_t align_size, bool noexcept_move, bool noexcept_copy>
     std::ostream& operator<<(std::ostream& stream, const erasable<Interface, buffer_size, align_size, noexcept_move, noexcept_copy>& val) { return val ? stream << *val : stream << "null"; }
+
+    template<class Interface, std::size_t buffer_size, std::size_t align_size, bool noexcept_move, bool noexcept_copy>
+    constexpr bool operator==(const erasable<Interface, buffer_size, align_size, noexcept_move, noexcept_copy>& lhs, 
+        const erasable<Interface, buffer_size, align_size, noexcept_move, noexcept_copy>& rhs) {
+        return lhs.has_value()==rhs.has_value() && (!lhs.has_value() || lhs.value()==rhs.value());
+    }
+    template<class Interface, std::size_t buffer_size, std::size_t align_size, bool noexcept_move, bool noexcept_copy>
+    constexpr bool operator!=(const erasable<Interface, buffer_size, align_size, noexcept_move, noexcept_copy>& lhs,
+        const erasable<Interface, buffer_size, align_size, noexcept_move, noexcept_copy>& rhs) {
+        return lhs.has_value() != rhs.has_value() || (lhs.has_value() && lhs.value() != rhs.value());
+    }
+    template<class Interface, std::size_t buffer_size, std::size_t align_size, bool noexcept_move, bool noexcept_copy>
+    constexpr bool operator==(std::nullptr_t impl, const erasable<Interface, buffer_size, align_size, noexcept_move, noexcept_copy>& erased) {
+        return !erased.has_value();
+    }
+    template<class Interface, std::size_t buffer_size, std::size_t align_size, bool noexcept_move, bool noexcept_copy>
+    constexpr bool operator==(
+        const erasable<Interface, buffer_size, align_size, noexcept_move, noexcept_copy>& erased, const std::nullptr_t& impl) {
+        return !erased.has_value();
+    }
+    template<class Interface, std::size_t buffer_size, std::size_t align_size, bool noexcept_move, bool noexcept_copy>
+    constexpr bool operator!=(std::nullptr_t impl, const erasable<Interface, buffer_size, align_size, noexcept_move, noexcept_copy>& erased) {
+        return erased.has_value();
+    }
+    template<class Interface, std::size_t buffer_size, std::size_t align_size, bool noexcept_move, bool noexcept_copy>
+    constexpr bool operator!=(
+        const erasable<Interface, buffer_size, align_size, noexcept_move, noexcept_copy>& erased, const std::nullptr_t& impl) {
+        return erased.has_value();
+    }
+
+    template<class Interface, std::size_t buffer_size, std::size_t align_size, bool noexcept_move, bool noexcept_copy>
+    constexpr bool operator==(std::nullopt_t impl, const erasable<Interface, buffer_size, align_size, noexcept_move, noexcept_copy>& erased) {
+        return !erased.has_value();
+    }
+    template<class Interface, std::size_t buffer_size, std::size_t align_size, bool noexcept_move, bool noexcept_copy>
+    constexpr bool operator==(
+        const erasable<Interface, buffer_size, align_size, noexcept_move, noexcept_copy>& erased, const std::nullopt_t& impl) {
+        return !erased.has_value();
+    }
+    template<class Interface, std::size_t buffer_size, std::size_t align_size, bool noexcept_move, bool noexcept_copy>
+    constexpr bool operator!=(std::nullopt_t impl, const erasable<Interface, buffer_size, align_size, noexcept_move, noexcept_copy>& erased) {
+        return erased.has_value();
+    }
+    template<class Interface, std::size_t buffer_size, std::size_t align_size, bool noexcept_move, bool noexcept_copy>
+    constexpr bool operator!=(
+        const erasable<Interface, buffer_size, align_size, noexcept_move, noexcept_copy>& erased, const std::nullopt_t& impl) {
+        return erased.has_value();
+    }
+
+    template<class Interface, std::size_t buffer_size, std::size_t align_size, bool noexcept_move, bool noexcept_copy, class Impl>
+    constexpr std::enable_if_t<std::is_base_of_v<Interface, Impl>, bool> operator==(const Impl& impl, 
+        const erasable<Interface, buffer_size, align_size, noexcept_move, noexcept_copy>& erased) {
+        return erased.has_value() && impl == erased.value();
+    }
+    template<class Interface, std::size_t buffer_size, std::size_t align_size, bool noexcept_move, bool noexcept_copy, class Impl>
+    constexpr std::enable_if_t<std::is_base_of_v<Interface, Impl>, bool> operator==(
+        const erasable<Interface, buffer_size, align_size, noexcept_move, noexcept_copy>& erased, const Impl& impl) {
+        return erased.has_value() && erased.value() == impl;
+    }
+    template<class Interface, std::size_t buffer_size, std::size_t align_size, bool noexcept_move, bool noexcept_copy, class Impl>
+    constexpr std::enable_if_t<std::is_base_of_v<Interface, Impl>, bool> operator!=(const Impl& impl,
+        const erasable<Interface, buffer_size, align_size, noexcept_move, noexcept_copy>& erased) {
+        return !erased.has_value() || impl != erased.value();
+    }
+    template<class Interface, std::size_t buffer_size, std::size_t align_size, bool noexcept_move, bool noexcept_copy, class Impl>
+    constexpr std::enable_if_t<std::is_base_of_v<Interface, Impl>, bool> operator!=(
+        const erasable<Interface, buffer_size, align_size, noexcept_move, noexcept_copy>& erased, const Impl& impl) {
+        return !erased.has_value() || erased.value() != impl;
+    }
 }
 namespace std {
     template<class Interface, std::size_t buffer_size, std::size_t align_size, bool noexcept_move, bool noexcept_copy>
