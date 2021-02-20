@@ -74,7 +74,6 @@ void test_small_strings() {
 	bigger_string_t large_lvalue = L"rstuvw";
 	std::initializer_list<wchar_t> init_list = { 'x', 'y', 'z', ',', '.', '/' };
 	std::hash<test_string_t> hasher;
-
 	_test_str_def_ctor();
 	test_str_ctor(L"aaaa", 4, L'a');
 	test_str_ctor(L"aaaaa", 7, L'a');

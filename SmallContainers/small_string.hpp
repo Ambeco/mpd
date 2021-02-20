@@ -337,18 +337,19 @@ namespace mpd {
 #if _HAS_CXX17
 		template<class T, std::enable_if_t<
 			std::is_convertible_v<const T&, std::basic_string_view<charT>>
-			&& !std::is_convertible_v<const T&, const CharT*>> = 0>
+			/*&& !std::is_convertible_v<const T&, const CharT*>*/, bool> = true>
 			explicit small_basic_string(const T& src) noexcept(overflow_throws)
 		{
 			set_size(0);
 			assign(src);
 		}
 		template<class T, std::enable_if_t<
-			std::is_convertible_v<const T&, std::basic_string_view<CharT, Traits>>> = 0>
+			std::is_convertible_v<const T&, std::basic_string_view<charT>>
+			/*&& !std::is_convertible_v<const T&, const CharT*>*/, bool> = true>
 			small_basic_string(const T& src, std::size_t src_idx, std::size_t src_count) noexcept(overflow_throws)
 		{
 			set_size(0);
-			assign(src);
+			assign(src, src_idx, src_count);
 		}
 #else 
 		template<class alloc>
@@ -366,7 +367,7 @@ namespace mpd {
 #if _HAS_CXX17
 		template<class T, std::enable_if_t <
 			std::is_convertible_v<const T&, std::basic_string_view<charT>>
-			&& !std::is_convertible_v<const T&, const CharT* >> = 0>
+			/*&& !std::is_convertible_v<const T&, const CharT* >*/, bool> = true>
 			small_basic_string& operator=(const T& src) noexcept(overflow_throws)
 		{
 			return assign(std::basic_string_view<charT, traits_type>(src));
@@ -405,14 +406,14 @@ namespace mpd {
 #if _HAS_CXX17
 		template<class T, std::enable_if_t <
 			std::is_convertible_v<const T&, std::basic_string_view<charT>>
-			&& !std::is_convertible_v<const T&, const CharT* >> = 0>
+			/*&& !std::is_convertible_v<const T&, const CharT* >*/, bool> = true>
 			small_basic_string& assign(const T& src) noexcept(overflow_throws)
 		{
 			return assign(src.data(), src.data() + src.size());
 		}
 		template<class T, std::enable_if_t <
 			std::is_convertible_v<const T&, std::basic_string_view<charT>>
-			&& !std::is_convertible_v<const T&, const CharT* >> = 0>
+			/*&& !std::is_convertible_v<const T&, const CharT* >*/, bool> = true>
 			small_basic_string& assign(const T& src, std::size_t src_idx, std::size_t src_count = npos) noexcept(overflow_throws)
 		{
 			src_idx = index_range_check(src_idx, src.size());
@@ -511,20 +512,20 @@ namespace mpd {
 #if _HAS_CXX17
 		template<class T, std::enable_if_t <
 			std::is_convertible_v<const T&, std::basic_string_view<charT>>
-			&& !std::is_convertible_v<const T&, const CharT* >> = 0>
+			/*&& !std::is_convertible_v<const T&, const CharT* >*/, bool> = true>
 			small_basic_string& insert(std::size_t dst_idx, const T& src) noexcept(overflow_throws)
 		{
-			this->_insert(data(), size(), max_len, dst_idx, src.data(), src.data() + src.size()); return *this;
+			return insert(dst_idx, src, 0);
 		}
 		template<class T, std::enable_if_t <
 			std::is_convertible_v<const T&, std::basic_string_view<charT>>
-			&& !std::is_convertible_v<const T&, const CharT* >> = 0>
+			/*&& !std::is_convertible_v<const T&, const CharT* >*/, bool> = true>
 			small_basic_string& insert(std::size_t dst_idx, const T& src, std::size_t src_idx, std::size_t src_count = npos) noexcept(overflow_throws)
 		{
 			std::basic_string_view<charT, traits_type> view(src);
 			src_idx = index_range_check(src_idx, view.size());
 			src_count = clamp_max(src_count, view.size() - src_idx);
-			this->_insert(data(), size(), max_len, dst_idx, view.data() + src_idx, view.data() + src_idx + src_count);
+			insert(cbegin() + dst_idx, src.data()+src_idx, src.data() + src_count);
 			return *this;
 		}
 #else
@@ -598,7 +599,7 @@ namespace mpd {
 #if _HAS_CXX17
 		template<class T, std::enable_if_t <
 			std::is_convertible_v<const T&, std::basic_string_view<charT>>
-			&& !std::is_convertible_v<const T&, const CharT* >> = 0>
+			/*&& !std::is_convertible_v<const T&, const CharT* >*/, bool> = true>
 			small_basic_string& append(const T& src) noexcept(overflow_throws)
 		{
 			std::basic_string_view<charT, traits_type> view(src);
@@ -606,7 +607,7 @@ namespace mpd {
 		}
 		template<class T, std::enable_if_t <
 			std::is_convertible_v<const T&, std::basic_string_view<charT>>
-			&& !std::is_convertible_v<const T&, const CharT* >> = 0>
+			/*&& !std::is_convertible_v<const T&, const CharT* >*/, bool> = true>
 			small_basic_string& append(const T& src, std::size_t src_idx, std::size_t src_count = npos) noexcept(overflow_throws)
 		{
 			std::basic_string_view<charT, traits_type> view(src);
@@ -631,7 +632,7 @@ namespace mpd {
 #if _HAS_CXX17
 		template<class T, std::enable_if_t <
 			std::is_convertible_v<const T&, std::basic_string_view<charT>>
-			&& !std::is_convertible_v<const T&, const CharT* >> = 0>
+			/*&& !std::is_convertible_v<const T&, const CharT* >*/, bool> = true>
 			small_basic_string& operator+=(const T& src) noexcept(overflow_throws) { return append(src); }
 #else
 		template<class alloc>
@@ -702,7 +703,7 @@ namespace mpd {
 #if _HAS_CXX17
 		template<class T, std::enable_if_t <
 			std::is_convertible_v<const T&, std::basic_string_view<charT>>
-			&& !std::is_convertible_v<const T&, const CharT* >> = 0>
+			/*&& !std::is_convertible_v<const T&, const CharT* >*/, bool> = true>
 			small_basic_string& replace(std::size_t dst_idx, std::size_t dst_count, const T& src) noexcept(overflow_throws)
 		{
 			std::basic_string_view<charT, traits_type> view(src);
@@ -710,7 +711,7 @@ namespace mpd {
 		}
 		template<class T, std::enable_if_t <
 			std::is_convertible_v<const T&, std::basic_string_view<charT>>
-			&& !std::is_convertible_v<const T&, const CharT* >> = 0>
+			/*&& !std::is_convertible_v<const T&, const CharT* >*/, bool> = true>
 			small_basic_string& replace(const_iterator dst_first, const_iterator dst_last, const T& src) noexcept(overflow_throws)
 		{
 			std::basic_string_view<charT, traits_type> view(src);
@@ -718,7 +719,7 @@ namespace mpd {
 		}
 		template<class T, std::enable_if_t <
 			std::is_convertible_v<const T&, std::basic_string_view<charT>>
-			&& !std::is_convertible_v<const T&, const CharT* >> = 0>
+			/*&& !std::is_convertible_v<const T&, const CharT* >*/, bool> = true>
 			small_basic_string& replace(std::size_t dst_idx, std::size_t dst_count, const T& src, std::size_t src_idx, std::size_t src_count = npos) noexcept(overflow_throws)
 		{
 			std::basic_string_view<charT, traits_type> view(src);
@@ -794,7 +795,7 @@ namespace mpd {
 #if _HAS_CXX17
 		template<class T, std::enable_if_t <
 			std::is_convertible_v<const T&, std::basic_string_view<charT>>
-			&& !std::is_convertible_v<const T&, const CharT* >> = 0>
+			/*&& !std::is_convertible_v<const T&, const CharT* >*/, bool> = true>
 			int compare(const T& other) const noexcept
 		{
 			std::basic_string_view<charT, traits_type> view(other);
@@ -802,7 +803,7 @@ namespace mpd {
 		}
 		template<class T, std::enable_if_t <
 			std::is_convertible_v<const T&, std::basic_string_view<charT>>
-			&& !std::is_convertible_v<const T&, const CharT* >> = 0>
+			/*&& !std::is_convertible_v<const T&, const CharT* >*/, bool> = true>
 			int compare(std::size_t self_idx, std::size_t self_count, const T& other) const noexcept(overflow_throws)
 		{
 			std::basic_string_view<charT, traits_type> view(other);
@@ -810,7 +811,7 @@ namespace mpd {
 		}
 		template<class T, std::enable_if_t <
 			std::is_convertible_v<const T&, std::basic_string_view<charT>>
-			&& !std::is_convertible_v<const T&, const CharT* >> = 0>
+			/*&& !std::is_convertible_v<const T&, const CharT* >*/, bool> = true>
 			int compare(std::size_t self_idx, std::size_t self_count, const T& other, std::size_t other_idx, std::size_t other_count = npos) const noexcept(overflow_throws)
 		{
 			std::basic_string_view<charT, traits_type> view(other);
@@ -852,7 +853,7 @@ namespace mpd {
 #if _HAS_CXX17
 		template<class T, std::enable_if_t <
 			std::is_convertible_v<const T&, std::basic_string_view<charT>>
-			&& !std::is_convertible_v<const T&, const CharT* >> = 0>
+			/*&& !std::is_convertible_v<const T&, const CharT* >*/, bool> = true>
 			std::size_t find(const T& other, std::size_t self_idx = 0) const noexcept
 		{
 			std::basic_string_view<charT, traits_type> view(other);
@@ -885,7 +886,7 @@ namespace mpd {
 #if _HAS_CXX17
 		template<class T, std::enable_if_t <
 			std::is_convertible_v<const T&, std::basic_string_view<charT>>
-			&& !std::is_convertible_v<const T&, const CharT* >> = 0>
+			/*&& !std::is_convertible_v<const T&, const CharT* >*/, bool> = true>
 			std::size_t rfind(const T& other, std::size_t self_idx = npos) const noexcept
 		{
 			std::basic_string_view<charT, traits_type> view(other);
@@ -918,7 +919,7 @@ namespace mpd {
 #if _HAS_CXX17
 		template<class T, std::enable_if_t <
 			std::is_convertible_v<const T&, std::basic_string_view<charT>>
-			&& !std::is_convertible_v<const T&, const CharT* >> = 0>
+			/*&& !std::is_convertible_v<const T&, const CharT* >*/, bool> = true>
 			std::size_t find_first_of(const T& other, std::size_t self_idx = 0) const noexcept
 		{
 			std::basic_string_view<charT, traits_type> view(other);
@@ -951,7 +952,7 @@ namespace mpd {
 #if _HAS_CXX17
 		template<class T, std::enable_if_t <
 			std::is_convertible_v<const T&, std::basic_string_view<charT>>
-			&& !std::is_convertible_v<const T&, const CharT* >> = 0>
+			/*&& !std::is_convertible_v<const T&, const CharT* >*/, bool> = true>
 			std::size_t find_first_not_of(const T& other, std::size_t self_idx = 0) const noexcept
 		{
 			std::basic_string_view<charT, traits_type> view(other);
@@ -984,7 +985,7 @@ namespace mpd {
 #if _HAS_CXX17
 		template<class T, std::enable_if_t <
 			std::is_convertible_v<const T&, std::basic_string_view<charT>>
-			&& !std::is_convertible_v<const T&, const CharT* >> = 0>
+			/*&& !std::is_convertible_v<const T&, const CharT* >*/, bool> = true>
 			std::size_t find_last_of(const T& other, std::size_t self_idx = npos) const noexcept
 		{
 			std::basic_string_view<charT, traits_type> view(other);
@@ -1017,7 +1018,7 @@ namespace mpd {
 #if _HAS_CXX17
 		template<class T, std::enable_if_t <
 			std::is_convertible_v<const T&, std::basic_string_view<charT>>
-			&& !std::is_convertible_v<const T&, const CharT* >> = 0>
+			/*&& !std::is_convertible_v<const T&, const CharT* >*/, bool> = true>
 			std::size_t find_last_not_of(const T& other, std::size_t self_idx = npos) const noexcept
 		{
 			std::basic_string_view<charT, traits_type> view(other);
