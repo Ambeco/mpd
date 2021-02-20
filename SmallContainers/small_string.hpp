@@ -525,7 +525,7 @@ namespace mpd {
 			std::basic_string_view<charT, traits_type> view(src);
 			src_idx = index_range_check(src_idx, view.size());
 			src_count = clamp_max(src_count, view.size() - src_idx);
-			insert(cbegin() + dst_idx, src.data()+src_idx, src.data() + src_count);
+			insert(cbegin() + dst_idx, src.data()+src_idx, src.data() + src_idx + src_count);
 			return *this;
 		}
 #else
