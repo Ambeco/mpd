@@ -93,11 +93,11 @@ namespace mpd {
         };
         erasing* ptr;
         buffer_t rawbuffer;
-        erasing* buffer() { return reinterpret_cast<erasing*>(&rawbuffer); }
+        erasing* buffer() { return std::launder(reinterpret_cast<erasing*>(&rawbuffer)); }
     public:
-        constexpr erasable() noexcept :ptr(nullptr) {}
-        constexpr erasable(std::nullopt_t) noexcept :ptr(nullptr) {}
-        constexpr erasable(std::nullptr_t) noexcept :ptr(nullptr) {}
+        constexpr erasable() noexcept :ptr(nullptr), rawbuffer{} {}
+        constexpr erasable(std::nullopt_t) noexcept :ptr(nullptr), rawbuffer{} {}
+        constexpr erasable(std::nullptr_t) noexcept :ptr(nullptr), rawbuffer{} {}
         constexpr erasable(const erasable& other) noexcept(noexcept_copy) :ptr(nullptr) { operator=(other); }
         constexpr erasable(erasable&& other) noexcept(noexcept_move) :ptr(nullptr) { operator=(std::move(other)); other.reset(); }
         template<class Impl, class...Ts>
@@ -146,10 +146,10 @@ namespace mpd {
         constexpr Interface& value_or(Interface& impl) noexcept {return ptr ? *(ptr->get()) : impl;}
         constexpr const Interface& value_or(const Interface& impl) const noexcept { return ptr ? *(ptr->get()) : impl; }
         constexpr void swap(erasable& other) {
-            if (ptr && ptr->swap(other.ptr)) return;
+            if (ptr && other.ptr && ptr->swap(other.ptr)) return;
             else if (other.ptr && ptr) std::swap(*this, other);
-            else if (other.ptr) operator=(other);
-            else other = *this;
+            else if (other.ptr) { operator=(other); other.reset(); }
+            else {other = *this; reset();}
         }
         constexpr void reset() { if (ptr) { std::destroy_at(ptr); ptr = nullptr; } }
         template<class Impl, class...Ts>

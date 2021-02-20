@@ -6,20 +6,20 @@
 
 struct Animal {
     virtual std::string noise() const = 0;
-    virtual bool operator==(const Animal& rhs) const = 0;
     virtual ~Animal() {};
+    virtual bool operator==(const Animal& rhs) const = 0;
 };
 std::ostream& operator<<(std::ostream& stream, const Animal& animal) { return stream << animal.noise(); }
 struct Dog : Animal {
     std::string name;
     Dog(std::string name_) : name(std::move(name_)) {}
+    std::string noise() const { return "bark"; }
     bool operator==(const Animal& rhs) const { return dynamic_cast<const Dog*>(&rhs); }
-    std::string noise() const { return "bark\n"; }
 };
 mpd::type_identity<Dog> dog_type;
 struct Cat : Animal {
+    std::string noise() const { return "meow"; }
     bool operator==(const Animal& rhs) const { return dynamic_cast<const Cat*>(&rhs); }
-    std::string noise() const { return "meow\n"; }
 };
 mpd::type_identity<Cat> cat_type;
 using eanimal = mpd::erasable<Animal, 56>;
@@ -36,7 +36,7 @@ void _test_empty_mutation(const expectedT& expected_value, F func) {
     assert(expected_value == animal);
 }
 #define test_empty_mutation(expected_value, op) \
-_test_empty_mutation(expected_value, [=](test_string_t& v){op;});
+_test_empty_mutation(expected_value, [=](eanimal& v){op;});
 
 template<class expectedT, class F>
 void _test_dog_mutation(const expectedT& expected_value, F func) {
@@ -67,16 +67,16 @@ void test_erasable() {
     test_ctor(ecempty, std::nullopt);
     test_ctor(ecempty, nullptr);
     test_ctor(ecempty, ecempty);
-    test_ctor(ccat, eccat);
+    test_ctor(eccat, eccat);
     test_ctor(ecempty, eanimal{});
-    test_ctor(ccat, eanimal{ Cat{} });
-    test_ctor(cdog, dog_type, "fido");
-    test_ctor(ccat, cat_type);
-    test_ctor(ccat, cat_type, Cat{});
-    test_ctor(ccat, cat_type, ccat);
-    test_ctor(cdog, Dog{ "fido" });
-    test_ctor(ccat, Cat{});
-    test_ctor(ccat, ccat);
+    test_ctor(eccat, eanimal{ Cat{} });
+    test_ctor(ecdog, dog_type, "fido");
+    test_ctor(eccat, cat_type);
+    test_ctor(eccat, cat_type, Cat{});
+    test_ctor(eccat, cat_type, ccat);
+    test_ctor(ecdog, Dog{ "fido" });
+    test_ctor(eccat, Cat{});
+    test_ctor(eccat, ccat);
     test_both_mutation(ecempty, v = ecempty);
     test_both_mutation(eccat, v = eccat);
     test_both_mutation(ecempty, v = eanimal{});
@@ -94,7 +94,7 @@ void test_erasable() {
     assert(eanimal{}.get() == nullptr);
     assert(emcat.get()->noise() == "meow");
     assert(ecempty.get() == nullptr);
-    assert(ecdog.get()->noise() == "meow");
+    assert(eccat.get()->noise() == "meow");
     assert(ecempty.has_value() == false);
     assert(eccat.has_value() == true);
     assert(emcat.value().noise() == "meow");
@@ -105,6 +105,10 @@ void test_erasable() {
     assert(eccat.value_or(ccat).noise() == "meow");
     test_both_mutation(ecempty, eanimal o{ }; v.swap(o));
     test_both_mutation(eccat, eanimal o{ Cat{} }; v.swap(o));
+    test_empty_mutation(ecempty, eanimal o{ }; o.swap(v));
+    test_empty_mutation(eccat, eanimal o{ Cat{} }; o.swap(v));
+    test_dog_mutation(ecempty, eanimal o{ }; o.swap(v));
+    test_dog_mutation(eccat, eanimal o{ Cat{} }; o.swap(v));
     test_both_mutation(ecempty, v.reset());
     test_both_mutation(cdog, v.emplace(dog_type, "fido"));
     test_both_mutation(ccat, v.emplace(cat_type));
