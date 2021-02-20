@@ -18,8 +18,10 @@ struct bar {
 void private_third_party_function(bar& f) { std::cout << "success" << f.c << f.d; }
 
 //private impl
-struct fooimpl : bar {};
-foo::foo() :impl(fooimpl{ 3, "hi" }) {}
+struct fooimpl : bar {
+    fooimpl(int c, const char* d) : bar{ c, d } {}
+};
+foo::foo() :impl(3, "hi") {}
 
 void public_api_function(foo& f) {
     private_third_party_function(*f.impl);

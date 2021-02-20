@@ -1,9 +1,4 @@
-#include <cassert>
-#include <cstddef>
 #include <memory>
-#include <optional>
-#include <type_traits>
-#include <utility>
 
 namespace mpd {
     //allows you to have Impl as a member without the definition available in the header
@@ -19,7 +14,7 @@ namespace mpd {
         constexpr pimpl(Ts&&...vs) noexcept(std::is_nothrow_constructible_v<Impl, Ts...>) :ptr(new(buffer())Impl(std::forward<Ts>(vs)...)) {}
         constexpr pimpl& operator=(const pimpl& other) noexcept(noexcept_copy) { *ptr = *other; }
         constexpr pimpl& operator=(pimpl&& other) noexcept(noexcept_move) { *ptr = std::move(*other); }
-        ~pimpl() { std::destroy_at(ptr); }
+        ~pimpl() { ptr->~Impl(); }
         constexpr Impl* operator->() noexcept { return ptr; }
         constexpr const Impl* operator->() const noexcept { return ptr; }
         constexpr Impl& operator*() noexcept { return *ptr; }

@@ -64,7 +64,9 @@ void test_erasable() {
     const eanimal eccat{ ccat };
 
     test_ctor(ecempty);
+#if __cplusplus >= 201704L
     test_ctor(ecempty, std::nullopt);
+#endif
     test_ctor(ecempty, nullptr);
     test_ctor(ecempty, ecempty);
     test_ctor(eccat, eccat);
@@ -83,7 +85,9 @@ void test_erasable() {
     test_both_mutation(eccat, v = eanimal{ Cat{} });
     test_both_mutation(eccat, v = eccat);
     test_both_mutation(eccat, v = Cat{});
+#if __cplusplus >= 201704L
     test_both_mutation(ecempty, v = std::nullopt);
+#endif
     test_both_mutation(ecempty, v = nullptr);
     assert(emcat->noise() == "meow");
     assert(eccat->noise() == "meow");

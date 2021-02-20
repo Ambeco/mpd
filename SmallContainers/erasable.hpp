@@ -2,7 +2,9 @@
 #include <cassert>
 #include <cstddef>
 #include <memory>
+#if __cplusplus >= 201704L
 #include <optional>
+#endif
 #include <type_traits>
 #include <utility>
 
@@ -16,6 +18,7 @@ namespace mpd {
 
 #if __cplusplus >= 201704L
     using type_identity = std::type_identity;
+    using in_place_t = std::in_place_t;
 #else
     template< class T >
     struct type_identity {
@@ -23,6 +26,13 @@ namespace mpd {
     };
     template< class T >
     using type_identity_t = typename type_identity<T>::type;
+    struct in_place_t {
+        explicit in_place_t() = default;
+    };
+    constexpr in_place_t in_place{};
+    template <class T> struct in_place_type_t {
+        explicit in_place_type_t() = default;
+    };
 #endif
 
     //hybrid std::unique_ptr/std::optional, that it can hold any impl that implements an interface, with no allocations.
@@ -43,7 +53,7 @@ namespace mpd {
         struct erased : erasing {
             Impl val;
             template<class...Ts>
-            erased(std::in_place_t, Ts&&...vs) : val(std::forward<Ts>(vs)...) {}
+            erased(in_place_t, Ts&&...vs) : val(std::forward<Ts>(vs)...) {}
             erasing* copy_construct(erasing* buffer) const noexcept(noexcept_copy) { assert(buffer); return new(buffer)erased(*this); }
             erasing* move_construct(erasing* buffer) noexcept(noexcept_move) { assert(buffer); return new(buffer)erased(std::move(*this)); }
             void copy_assign(erasing*& other) const noexcept(noexcept_copy) {
@@ -93,10 +103,16 @@ namespace mpd {
         };
         erasing* ptr;
         buffer_t rawbuffer;
+#if __cplusplus >= 201704L
         erasing* buffer() { return std::launder(reinterpret_cast<erasing*>(&rawbuffer)); }
+#else
+        erasing* buffer() { return reinterpret_cast<erasing*>(&rawbuffer); }
+#endif
     public:
         constexpr erasable() noexcept :ptr(nullptr), rawbuffer{} {}
+#if __cplusplus >= 201704L
         constexpr erasable(std::nullopt_t) noexcept :ptr(nullptr), rawbuffer{} {}
+#endif
         constexpr erasable(std::nullptr_t) noexcept :ptr(nullptr), rawbuffer{} {}
         constexpr erasable(const erasable& other) noexcept(noexcept_copy) :ptr(nullptr) { operator=(other); }
         constexpr erasable(erasable&& other) noexcept(noexcept_move) :ptr(nullptr) { operator=(std::move(other)); other.reset(); }
@@ -130,7 +146,9 @@ namespace mpd {
             else emplace(std::move(rhs));
             return *this;
         }
+#if __cplusplus >= 201704L
         constexpr erasable& operator=(std::nullopt_t) { reset(); return *this; }
+#endif
         constexpr erasable& operator=(std::nullptr_t) { reset(); return *this; }
         ~erasable() { reset(); }
         constexpr Interface* operator->() noexcept { return ptr->get(); }
@@ -151,11 +169,11 @@ namespace mpd {
             else if (other.ptr) { operator=(other); other.reset(); }
             else {other = *this; reset();}
         }
-        constexpr void reset() { if (ptr) { std::destroy_at(ptr); ptr = nullptr; } }
+        constexpr void reset() { if (ptr) { ptr->~erasing(); ptr = nullptr; } }
         template<class Impl, class...Ts>
-        constexpr void emplace(type_identity<Impl>, Ts&&...vs) noexcept(std::is_nothrow_constructible_v<Impl, Ts...>) { reset(); ptr = new(buffer())erased<Impl>(std::in_place, std::forward<Ts>(vs)...); }
+        constexpr void emplace(type_identity<Impl>, Ts&&...vs) noexcept(std::is_nothrow_constructible_v<Impl, Ts...>) { reset(); ptr = new(buffer())erased<Impl>(in_place, std::forward<Ts>(vs)...); }
         template<class Impl, class...Ts>
-        constexpr void emplace(Ts&&...vs) noexcept(std::is_nothrow_constructible_v<Impl, Ts...>) { reset(); ptr = new(buffer())erased<Impl>(std::in_place, std::forward<Ts>(vs)...); }
+        constexpr void emplace(Ts&&...vs) noexcept(std::is_nothrow_constructible_v<Impl, Ts...>) { reset(); ptr = new(buffer())erased<Impl>(in_place, std::forward<Ts>(vs)...); }
         template<class Impl>
         constexpr std::enable_if_t<std::is_base_of_v<Interface, Impl>, void> emplace(const Impl& rhs) { emplace(type_identity<Impl>{}, rhs); }
         template<class Impl>
@@ -193,6 +211,7 @@ namespace mpd {
         return erased.has_value();
     }
 
+#if __cplusplus >= 201704L
     template<class Interface, std::size_t buffer_size, std::size_t align_size, bool noexcept_move, bool noexcept_copy>
     constexpr bool operator==(std::nullopt_t impl, const erasable<Interface, buffer_size, align_size, noexcept_move, noexcept_copy>& erased) {
         return !erased.has_value();
@@ -211,6 +230,7 @@ namespace mpd {
         const erasable<Interface, buffer_size, align_size, noexcept_move, noexcept_copy>& erased, const std::nullopt_t& impl) {
         return erased.has_value();
     }
+#endif
 
     template<class Interface, std::size_t buffer_size, std::size_t align_size, bool noexcept_move, bool noexcept_copy, class Impl>
     constexpr std::enable_if_t<std::is_base_of_v<Interface, Impl>, bool> operator==(const Impl& impl, 
