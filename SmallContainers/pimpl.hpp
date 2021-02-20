@@ -12,8 +12,8 @@ namespace mpd {
         constexpr pimpl(pimpl&& other) noexcept(noexcept_move) :ptr(new(buffer())Impl(std::move(*other))) {}
         template<class...Ts>
         constexpr pimpl(Ts&&...vs) noexcept(std::is_nothrow_constructible_v<Impl, Ts...>) :ptr(new(buffer())Impl(std::forward<Ts>(vs)...)) {}
-        constexpr pimpl& operator=(const pimpl& other) noexcept(noexcept_copy) { *ptr = *other; }
-        constexpr pimpl& operator=(pimpl&& other) noexcept(noexcept_move) { *ptr = std::move(*other); }
+        constexpr pimpl& operator=(const pimpl& other) noexcept(noexcept_copy) { *ptr = *other; return *this; }
+        constexpr pimpl& operator=(pimpl&& other) noexcept(noexcept_move) { *ptr = std::move(*other); return *this;}
         ~pimpl() { ptr->~Impl(); }
         constexpr Impl* operator->() noexcept { return ptr; }
         constexpr const Impl* operator->() const noexcept { return ptr; }
