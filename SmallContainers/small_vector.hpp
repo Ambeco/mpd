@@ -354,7 +354,7 @@ namespace mpd {
 			using derived = derived_;
 			using temp_storage = temp_storage_;
 			using value_type = T;
-			svector_local_storage() noexcept(true) : len_(0) {}
+			svector_local_storage() noexcept(true) : len_(0), mem_buffer{} {}
 			T* data() noexcept(true) { return reinterpret_cast<T*>(mem_buffer.data()); }
 			const T* data() const noexcept(true) { return reinterpret_cast<const T*>(mem_buffer.data()); }
 			const T* cdata() const noexcept(true) { return reinterpret_cast<const T*>(mem_buffer.data()); }
