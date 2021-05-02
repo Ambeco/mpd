@@ -36,7 +36,7 @@ namespace mpd {
 #endif
 
     //hybrid std::unique_ptr/std::optional, that it can hold any impl that implements an interface, with no allocations.
-    template<class Interface, std::size_t buffer_size, std::size_t align_size = alignof(std::max_align_t), bool noexcept_move = false, bool noexcept_copy = false>
+    template<class Interface, std::size_t buffer_size, std::size_t align_size = alignof(std::max_align_t), bool allow_heap=false, bool noexcept_move = false, bool noexcept_copy = false>
     class erasable {
         using buffer_t = std::aligned_storage_t<buffer_size, align_size>;
         struct erasing {
@@ -45,30 +45,28 @@ namespace mpd {
             virtual void copy_assign(erasing* buffer, Interface*& ptr) const noexcept(noexcept_copy) = 0;
             virtual void move_assign(erasing* buffer, Interface*& ptr) noexcept(noexcept_move) = 0;
             virtual bool swap(erasing* other) = 0;
-            virtual Interface* get() = 0;
-            virtual const Interface* get() const = 0;
             virtual ~erasing() {}
         };
         template<class Impl>
-        struct erased : erasing {
+        struct member_erased : erasing {
             Impl val;
             template<class...Ts>
-            erased(in_place_t, Ts&&...vs) : val(std::forward<Ts>(vs)...) {}
+            member_erased(in_place_t, Ts&&...vs) : val(std::forward<Ts>(vs)...) {}
             void copy_construct(erasing* buffer, Interface*& ptr) const noexcept(noexcept_copy) { 
                 assert(buffer);
                 assert(!ptr);
-                erased* other=new(buffer)erased(*this); 
+                member_erased* other=new(buffer)member_erased(*this); 
                 ptr=&(other->val);
             }
             void move_construct(erasing* buffer, Interface*& ptr) noexcept(noexcept_move) { 
                 assert(buffer); 
                 assert(!ptr); 
-                erased* other=new(buffer)erased(std::move(*this)); 
+                member_erased* other=new(buffer)member_erased(std::move(*this)); 
                 ptr=&(other->val); 
             }
             void copy_assign(erasing* buffer, Interface*& ptr) const noexcept(noexcept_copy) {
                 assert(buffer);
-                erased* othererased = dynamic_cast<erased*>(buffer);
+                member_erased* othererased = dynamic_cast<member_erased*>(buffer);
                 if (othererased) {
                     othererased->val = val;
                 } else {
@@ -79,7 +77,7 @@ namespace mpd {
             }
             void move_assign(erasing* buffer, Interface*& ptr) noexcept(noexcept_move) {
                 assert(buffer);
-                erased* othererased = dynamic_cast<erased*>(buffer);
+                member_erased* othererased = dynamic_cast<member_erased*>(buffer);
                 if (othererased) {
                     othererased->val = std::move(val);
                 } else {
@@ -90,7 +88,7 @@ namespace mpd {
             }
             bool swap(erasing* other) {
                 assert(other);
-                erased* othererased = dynamic_cast<erased*>(other);
+                member_erased* othererased = dynamic_cast<member_erased*>(other);
                 if (othererased) {
                     using std::swap;
                     swap(val, othererased->val);
@@ -99,14 +97,76 @@ namespace mpd {
                 return false;
             }
             Interface* get() { return &val; }
-            const Interface* get() const { return &val; }
-            ~erased() {
-                static_assert_less_eq<sizeof(erased), sizeof(buffer_t)>{};
-                static_assert_mod_0<align_size, alignof(erased)>{};
+            ~member_erased() {
+                static_assert_less_eq<sizeof(member_erased), sizeof(buffer_t)>{};
+                static_assert_mod_0<align_size, alignof(member_erased)>{};
                 static_assert_if_then_also<noexcept_move, std::is_nothrow_move_constructible_v<Impl>>{};
                 static_assert_if_then_also<noexcept_copy, std::is_nothrow_copy_constructible_v<Impl>>{};
             }
         };
+        template<class Impl>
+        struct heap_erased : erasing {
+            std::unique_ptr<Impl> val;
+            template<class...Ts>
+            heap_erased(in_place_t, Ts&&...vs) : val(std::make_unique<Impl>(std::forward<Ts>(vs)...)) {}
+            void copy_construct(erasing* buffer, Interface*& ptr) const noexcept(noexcept_copy) { 
+                assert(buffer);
+                assert(!ptr);
+                heap_erased* other=new(buffer)heap_erased(*this); 
+                ptr=other->val.get();
+            }
+            void move_construct(erasing* buffer, Interface*& ptr) noexcept(noexcept_move) { 
+                assert(buffer); 
+                assert(!ptr); 
+                heap_erased* other=new(buffer)heap_erased(std::move(*this)); 
+                ptr=other->val.get(); 
+            }
+            void copy_assign(erasing* buffer, Interface*& ptr) const noexcept(noexcept_copy) {
+                assert(buffer);
+                heap_erased* othererased = dynamic_cast<heap_erased*>(buffer);
+                if (othererased) {
+                    *(othererased->val) = *val;
+                } else {
+                    buffer->~erasing();
+                    ptr = nullptr;
+                    copy_construct(buffer, ptr);
+                }
+            }
+            void move_assign(erasing* buffer, Interface*& ptr) noexcept(noexcept_move) {
+                assert(buffer);
+                heap_erased* othererased = dynamic_cast<heap_erased*>(buffer);
+                if (othererased) {
+                    *(othererased->val) = std::move(*val);
+                } else {
+                    buffer->~erasing();
+                    ptr = nullptr;
+                    move_construct(buffer, ptr);
+                }
+            }
+            bool swap(erasing* other) {
+                assert(other);
+                heap_erased* othererased = dynamic_cast<heap_erased*>(other);
+                if (othererased) {
+                    using std::swap;
+                    swap(*val, *(othererased->val));
+                    return true;
+                }
+                return false;
+            }
+            Interface* get() { return val.get(); }
+            ~heap_erased() {
+                static_assert_less_eq<sizeof(heap_erased), sizeof(buffer_t)>{};
+                static_assert_mod_0<align_size, alignof(heap_erased)>{};
+                static_assert_if_then_also<noexcept_move, std::is_nothrow_move_constructible_v<Impl>>{};
+                static_assert_if_then_also<noexcept_copy, std::is_nothrow_copy_constructible_v<Impl>>{};
+            }
+        };
+        template<class T> class measure_virtual {T v; virtual ~measure_virtual(){}};
+        template<class Impl, bool use_heap= (sizeof(measure_virtual<Impl>)>buffer_size) && allow_heap> 
+        struct erased : heap_erased<Impl> {using heap_erased<Impl>::heap_erased;};
+        template<class Impl> 
+        struct erased<Impl,false> : member_erased<Impl> {using member_erased<Impl>::member_erased;};
+
         Interface* ptr;
         buffer_t rawbuffer;
 #if __cplusplus >= 201704L
@@ -211,64 +271,64 @@ namespace mpd {
         return lhs.has_value() != rhs.has_value() || (lhs.has_value() && lhs.value() != rhs.value());
     }
     template<class Interface, std::size_t buffer_size, std::size_t align_size, bool noexcept_move, bool noexcept_copy>
-    constexpr bool operator==(std::nullptr_t impl, const erasable<Interface, buffer_size, align_size, noexcept_move, noexcept_copy>& erased) {
-        return !erased.has_value();
+    constexpr bool operator==(std::nullptr_t impl, const erasable<Interface, buffer_size, align_size, noexcept_move, noexcept_copy>& member_erased) {
+        return !member_erased.has_value();
     }
     template<class Interface, std::size_t buffer_size, std::size_t align_size, bool noexcept_move, bool noexcept_copy>
     constexpr bool operator==(
-        const erasable<Interface, buffer_size, align_size, noexcept_move, noexcept_copy>& erased, const std::nullptr_t& impl) {
-        return !erased.has_value();
+        const erasable<Interface, buffer_size, align_size, noexcept_move, noexcept_copy>& member_erased, const std::nullptr_t& impl) {
+        return !member_erased.has_value();
     }
     template<class Interface, std::size_t buffer_size, std::size_t align_size, bool noexcept_move, bool noexcept_copy>
-    constexpr bool operator!=(std::nullptr_t impl, const erasable<Interface, buffer_size, align_size, noexcept_move, noexcept_copy>& erased) {
-        return erased.has_value();
+    constexpr bool operator!=(std::nullptr_t impl, const erasable<Interface, buffer_size, align_size, noexcept_move, noexcept_copy>& member_erased) {
+        return member_erased.has_value();
     }
     template<class Interface, std::size_t buffer_size, std::size_t align_size, bool noexcept_move, bool noexcept_copy>
     constexpr bool operator!=(
-        const erasable<Interface, buffer_size, align_size, noexcept_move, noexcept_copy>& erased, const std::nullptr_t& impl) {
-        return erased.has_value();
+        const erasable<Interface, buffer_size, align_size, noexcept_move, noexcept_copy>& member_erased, const std::nullptr_t& impl) {
+        return member_erased.has_value();
     }
 
 #if __cplusplus >= 201704L
     template<class Interface, std::size_t buffer_size, std::size_t align_size, bool noexcept_move, bool noexcept_copy>
-    constexpr bool operator==(std::nullopt_t impl, const erasable<Interface, buffer_size, align_size, noexcept_move, noexcept_copy>& erased) {
-        return !erased.has_value();
+    constexpr bool operator==(std::nullopt_t impl, const erasable<Interface, buffer_size, align_size, noexcept_move, noexcept_copy>& member_erased) {
+        return !member_erased.has_value();
     }
     template<class Interface, std::size_t buffer_size, std::size_t align_size, bool noexcept_move, bool noexcept_copy>
     constexpr bool operator==(
-        const erasable<Interface, buffer_size, align_size, noexcept_move, noexcept_copy>& erased, const std::nullopt_t& impl) {
-        return !erased.has_value();
+        const erasable<Interface, buffer_size, align_size, noexcept_move, noexcept_copy>& member_erased, const std::nullopt_t& impl) {
+        return !member_erased.has_value();
     }
     template<class Interface, std::size_t buffer_size, std::size_t align_size, bool noexcept_move, bool noexcept_copy>
-    constexpr bool operator!=(std::nullopt_t impl, const erasable<Interface, buffer_size, align_size, noexcept_move, noexcept_copy>& erased) {
-        return erased.has_value();
+    constexpr bool operator!=(std::nullopt_t impl, const erasable<Interface, buffer_size, align_size, noexcept_move, noexcept_copy>& member_erased) {
+        return member_erased.has_value();
     }
     template<class Interface, std::size_t buffer_size, std::size_t align_size, bool noexcept_move, bool noexcept_copy>
     constexpr bool operator!=(
-        const erasable<Interface, buffer_size, align_size, noexcept_move, noexcept_copy>& erased, const std::nullopt_t& impl) {
-        return erased.has_value();
+        const erasable<Interface, buffer_size, align_size, noexcept_move, noexcept_copy>& member_erased, const std::nullopt_t& impl) {
+        return member_erased.has_value();
     }
 #endif
 
     template<class Interface, std::size_t buffer_size, std::size_t align_size, bool noexcept_move, bool noexcept_copy, class Impl>
     constexpr std::enable_if_t<std::is_base_of_v<Interface, Impl>, bool> operator==(const Impl& impl, 
-        const erasable<Interface, buffer_size, align_size, noexcept_move, noexcept_copy>& erased) {
-        return erased.has_value() && impl == erased.value();
+        const erasable<Interface, buffer_size, align_size, noexcept_move, noexcept_copy>& member_erased) {
+        return member_erased.has_value() && impl == member_erased.value();
     }
     template<class Interface, std::size_t buffer_size, std::size_t align_size, bool noexcept_move, bool noexcept_copy, class Impl>
     constexpr std::enable_if_t<std::is_base_of_v<Interface, Impl>, bool> operator==(
-        const erasable<Interface, buffer_size, align_size, noexcept_move, noexcept_copy>& erased, const Impl& impl) {
-        return erased.has_value() && erased.value() == impl;
+        const erasable<Interface, buffer_size, align_size, noexcept_move, noexcept_copy>& member_erased, const Impl& impl) {
+        return member_erased.has_value() && member_erased.value() == impl;
     }
     template<class Interface, std::size_t buffer_size, std::size_t align_size, bool noexcept_move, bool noexcept_copy, class Impl>
     constexpr std::enable_if_t<std::is_base_of_v<Interface, Impl>, bool> operator!=(const Impl& impl,
-        const erasable<Interface, buffer_size, align_size, noexcept_move, noexcept_copy>& erased) {
-        return !erased.has_value() || impl != erased.value();
+        const erasable<Interface, buffer_size, align_size, noexcept_move, noexcept_copy>& member_erased) {
+        return !member_erased.has_value() || impl != member_erased.value();
     }
     template<class Interface, std::size_t buffer_size, std::size_t align_size, bool noexcept_move, bool noexcept_copy, class Impl>
     constexpr std::enable_if_t<std::is_base_of_v<Interface, Impl>, bool> operator!=(
-        const erasable<Interface, buffer_size, align_size, noexcept_move, noexcept_copy>& erased, const Impl& impl) {
-        return !erased.has_value() || erased.value() != impl;
+        const erasable<Interface, buffer_size, align_size, noexcept_move, noexcept_copy>& member_erased, const Impl& impl) {
+        return !member_erased.has_value() || member_erased.value() != impl;
     }
 }
 namespace std {
