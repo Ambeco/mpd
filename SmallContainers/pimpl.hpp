@@ -19,7 +19,7 @@ namespace mpd {
         constexpr pimpl(Ts&&...vs) noexcept(std::is_nothrow_constructible_v<Impl, Ts...>) { new(buffer())Impl(std::forward<Ts>(vs)...); }
         constexpr pimpl& operator=(const pimpl& other) noexcept(noexcept_copy) { *buffer() = *other; return *this; }
         constexpr pimpl& operator=(pimpl&& other) noexcept(noexcept_move) { *buffer() = std::move(*other); return *this;}
-        ~pimpl() { buffer()->~Impl(); static_assert(sizeof(Impl)<sizeof(rawbuffer)); }
+        ~pimpl() { buffer()->~Impl(); static_assert(sizeof(Impl)<sizeof(rawbuffer), "buffer_size is too small"); }
         constexpr Impl* operator->() noexcept { return buffer(); }
         constexpr const Impl* operator->() const noexcept { return buffer(); }
         constexpr Impl& operator*() noexcept { return *buffer(); }
