@@ -5,24 +5,24 @@
 namespace mpd {
 	template<class T>
 	class reference_iterator {
-		static_assert(std::is_reference_t<T>, "T must be a reference type");
-		std::remove_reference_t<T>* ptr;
+		static_assert(!std::is_reference_t<T>, "T must not be a reference type");
+		const T* ptr;
 		std::size_t index=0;
 	public:
-		using value_type = T;
+		using value_type = const T&;
 		using difference_type = std::ptrdiff_t;
-		using pointer = std::remove_reference_t<T>*;
-		using reference = T;
+		using pointer = const T*;
+		using reference = const T&;
 		using iterator_category = std::random_access_iterator_tag;
 
 		reference_iterator() : ptr(nullptr_t) {}
 		reference_iterator(const reference_iterator& rhs) =default;
-		explicit reference_iterator(T value, std::size_t index=0) : ptr(&value), index(index) {}
+		explicit reference_iterator(const T& value, std::size_t index=0) : ptr(&value), index(index) {}
 		~reference_iterator() {}
 		reference_iterator& operator=(const reference_iterator&) =default;
 
 		pointer operator->() const {return ptr;}
-		reference operator*() const {return std::forward<T>(*ptr);}
+		reference operator*() const {return *ptr;}
 
 		reference_iterator& operator++() {++index; return *this;}
 		reference_iterator operator++(int) {return {*this, index++}; }
