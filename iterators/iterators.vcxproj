@@ -139,6 +139,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="indexed_iterator.h" />
     <ClInclude Include="erased_input_iterator.h" />
     <ClInclude Include="reference_iterator.h" />
   </ItemGroup>

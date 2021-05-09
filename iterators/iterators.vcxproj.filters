@@ -21,5 +21,8 @@
     <ClInclude Include="reference_iterator.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="indexed_iterator.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>
