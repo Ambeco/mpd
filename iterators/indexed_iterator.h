@@ -3,6 +3,13 @@
 #include <type_traits>
 
 namespace mpd {
+	/**
+	* A wrapper around a base iterator that tracks the index
+	* 
+	* Two indexed_iterators with the same index are always considered equal.
+	* This is useful for algorithms where you want to clamp an input range.
+	* std::copy(make_indexed(first, 0), make_indexed(last, 25), outit); //outit only has to support 25 writes
+	**/
 	template<class base_iterator>
 	class indexed_iterator {
 		base_iterator base;
@@ -17,7 +24,7 @@ namespace mpd {
 		indexed_iterator() =default;
 		indexed_iterator(const indexed_iterator& rhs) =default;
 		explicit indexed_iterator(std::size_t index) : index(index) {}
-		explicit indexed_iterator(base_iterator base, std::size_t index=0) : base(base), index(index) {}
+		explicit indexed_iterator(base_iterator base, std::size_t index) : base(base), index(index) {}
 		~indexed_iterator() {}
 		indexed_iterator& operator=(const indexed_iterator&) =default;
 
@@ -37,7 +44,7 @@ namespace mpd {
 		friend difference_type operator-(const indexed_iterator& l, const indexed_iterator& r) {return static_cast<difference_type>(l.index) - r.index;}
 
 		friend bool operator==(const indexed_iterator& l, const indexed_iterator& r) {return l==r || l.index==r.index;}
-		friend bool operator!=(const indexed_iterator& l, const indexed_iterator& r) {return !(l==r);}
+		friend bool operator!=(const indexed_iterator& l, const indexed_iterator& r) {return l!=r && !(l==r);}
 		friend bool operator<(const indexed_iterator& l, const indexed_iterator& r) {return l.index<r.index;}
 		friend bool operator>(const indexed_iterator& l, const indexed_iterator& r) {return l.index>r.index;}
 		friend bool operator<=(const indexed_iterator& l, const indexed_iterator& r) {return l.index<=r.index;}
@@ -45,4 +52,6 @@ namespace mpd {
 
 		friend void swap(indexed_iterator& l, indexed_iterator& r) {std::swap(l.ptr, r.ptr); std::swap(l.index, r.index);}
 	};
+	template<class base_iterator, std::enable_if_t<std::is_base_of_v<std::input_iterator_tag, typename std::iterator_traits<base_iterator>::tag>, bool> = true>
+	indexed_iterator<base_iterator> make_indexed(base_iterator base, std::size_t index) {return {base, index};}
 }
