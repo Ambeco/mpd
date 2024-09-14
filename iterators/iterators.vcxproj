@@ -21,7 +21,7 @@
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
-    <ProjectGuid>{ba1ebce6-2898-43dd-a6f7-fd00a63d1bdf}</ProjectGuid>
+    <ProjectGuid>{7f247bb0-70c7-497d-9e3d-63f647b081e7}</ProjectGuid>
     <RootNamespace>iterators</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
@@ -139,9 +139,9 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="indexed_iterator.h" />
-    <ClInclude Include="erased_input_iterator.h" />
-    <ClInclude Include="reference_iterator.h" />
+    <ClInclude Include="iterator.hpp" />
+    <ClInclude Include="reference_iterator.hpp" />
+    <ClInclude Include="strlen_iterator.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

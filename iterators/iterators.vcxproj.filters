@@ -15,13 +15,13 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="erased_input_iterator.h">
+    <ClInclude Include="iterator.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="reference_iterator.h">
+    <ClInclude Include="reference_iterator.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="indexed_iterator.h">
+    <ClInclude Include="strlen_iterator.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

@@ -15,10 +15,7 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="memory.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="stack_allocator.hpp">
+    <ClInclude Include="front_buffer.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

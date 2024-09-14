@@ -21,8 +21,8 @@
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
-    <ProjectGuid>{5a31789b-d59c-49b1-903b-5456c3d9f654}</ProjectGuid>
-    <RootNamespace>memory</RootNamespace>
+    <ProjectGuid>{b83bec95-ecea-4053-8fb4-b3e4de1b12f1}</ProjectGuid>
+    <RootNamespace>strings</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
@@ -139,8 +139,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="memory.hpp" />
-    <ClInclude Include="stack_allocator.hpp" />
+    <ClInclude Include="string_buffer.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
