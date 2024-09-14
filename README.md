@@ -55,7 +55,7 @@ compatability with C++14, but may bump that to C++17 at some point in the future
 	`ForwardIt1 find_first_not_of(ForwardIt1 first, ForwardIt1 last, ForwardIt2 s_first, ForwardIt2 s_last)`
  - `template< class ForwardIt1, class ForwardIt2 >`  
 	`ForwardIt1 find_last_not_of(ForwardIt1 first, ForwardIt1 last, ForwardIt2 s_first, ForwardIt2 s_last)`
- - `template< class InputIt1, class InputIt2, class Cmp= std::less<typename std::iterator_traits<InputIt1>::value_type> >`
+ - `template< class InputIt1, class InputIt2, class Cmp= std::less<typename std::iterator_traits<InputIt1>::value_type> >`  
 	`constexpr int compare(InputIt1 first1, InputIt1 last1, InputIt2 first2, InputIt2 last2, Cmp comp = {})`
 
 #### Two-Range Algorithms that check the end of both ranges
@@ -162,7 +162,8 @@ Helper methods for iterating up to a maximum count.
 `class reference_iterator`  
 An iterator constructed from a reference, and optionally, an index. Dereferencing the iterator always refers to the referenced value.
 This is useful for adding an overload for an iterator pair method that instead takes a value and a count.  
-`void function(const T& item, int count) {return function(ref_iter(item), ref_iter(item, count));}`
+`void function(const T& item, int count)`  
+`{return function(ref_iter(item), ref_iter(item, count));}`
 - `template<class T>`    
 	`reference_iterator<T> ref_iter(const T& ref, std::size_t index = 0) noexcept`  
 A helper method for constructing a `reference_iterator`.
@@ -173,7 +174,8 @@ A helper method for constructing a `reference_iterator`.
 An iterator that can be constructed from a string pointer (presumably a `const char*`), but if it points at `'\0'`,
 then it compares as equal to any default-constructed `strlen_iterator`. This is useful for adding an overload
 for an iterator pair method that instead takes a pointer to a null-terminated string.  
-`void function(const char* string) {return function(strlen_iter(string), {});}`
+`void function(const char* string)`  
+`{return function(strlen_iter(string), {});}`
 - `template<class T>`    
 	`strlen_iterator<T> strlen_iter(const T* ptr*) noexcept`  
 A helper method for constructing a `strlen_iterator`.
