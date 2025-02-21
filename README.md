@@ -6,7 +6,7 @@ code revolving around not allocating objects on the heap.
 
 I've been making helper utilities for years, and they are uselessly scattered around my harddrive,
 and around the internet, so I'm going to polish them and merge them all here. I'm currently maintaining
-compatability with C++14, but may bump that to C++17 at some point in the future.
+compatability with C\++14, but may bump that to C\++17 at some point in the future.
 
 # Table of Contents
 - [Libraries](#Libraries)
