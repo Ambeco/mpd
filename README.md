@@ -72,6 +72,34 @@ TODO: Atomic operations on bitfields
 
 ## Containers
 
+### bitfield.hpp
+
+#### bitfield_member class.
+
+- `template<class BaseT, class FieldT, unsigned bitcount, unsigned offset, class Getter, class Setter>`  
+	 `class bitfield_member;`  
+ A helper class for easily and safely using bitfield members.  Simply declare the "fields" as methods that return
+ instanes of this class, and then callers can use these as if they were direct references to those types, without worrying about bits or shifting.
+ ``` 
+ // defining a bitfield
+ class TestBitfield {
+    using A_type = mpd::bitfield_member<unsigned long long, bool, 1, 0>;
+    using B_type = mpd::bitfield_member<unsigned long long, short, 10, 1>;
+    using C_type = mpd::bitfield_member<unsigned long long, unsigned short, 9, 11>;
+    unsigned long long bits=0;
+ public:
+    A_type A() {return A_type(bits);}
+    B_type B() {return B_type(bits);}
+    C_type C() { return C_type(bits); }
+};
+
+// usage is straightforward and intuitive
+unsigned short foo(TestBitfield& b) {
+   std::cin >> b.B();
+   return b.C();
+}
+```
+
 ### front_buffer.hpp
 
 Helper methods and a wrapper class for working with front-filled buffers.

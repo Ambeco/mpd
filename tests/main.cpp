@@ -5,6 +5,7 @@ void test_erasable();
 void test_pimpl();
 void test_pimpl2();
 void test_small_vectors();
+void test_bitfields();
 
 int main() {
 	test_istream_lit();
@@ -13,5 +14,6 @@ int main() {
 	test_pimpl();
 	test_pimpl2();
 	test_small_vectors();
+	test_bitfields();
 	return 0;
 }

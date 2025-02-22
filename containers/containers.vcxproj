@@ -141,6 +141,9 @@
   <ItemGroup>
     <ClInclude Include="front_buffer.hpp" />
   </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="bitfield.hpp" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
