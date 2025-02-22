@@ -100,7 +100,7 @@ namespace mpd {
 			BaseT sign_extended_bits;
 			if (std::numeric_limits<FieldT>::is_signed) {
 				// negative values need the sign-extension bits set
-				sign_extended_bits = ~((raw_bits >> (bitcount-1)) - 1u);
+				sign_extended_bits = ~((raw_bits >> (bitcount - 1)) - 1u);
 				sign_extended_bits = (sign_extended_bits & ~lomask) | raw_bits;
 			} else {
 				sign_extended_bits = raw_bits;
@@ -109,7 +109,7 @@ namespace mpd {
 		}
 		constexpr void set(FieldT value) {
 			// Despite appearances, this whole method is branchless
-			
+
 			// ensure that input value is in the range of values that fit
 			// note: negative values may have sign-extension bits more than bitcount,
 			// but these are not significant bits.

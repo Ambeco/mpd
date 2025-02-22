@@ -79,7 +79,7 @@ TODO: Atomic operations on bitfields
 - `template<class BaseT, class FieldT, unsigned bitcount, unsigned offset, class Getter, class Setter>`  
 	 `class bitfield_member;`  
  A helper class for easily and safely using bitfield members.  Simply declare the "fields" as methods that return
- instanes of this class, and then callers can use these as if they were direct references to those types, without worrying about bits or shifting.
+ instances of this class, and then callers can use these as if they were direct references to those types, without worrying about bits or shifting.
  ``` 
  // defining a bitfield
  class TestBitfield {
