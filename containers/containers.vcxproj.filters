@@ -18,10 +18,8 @@
     <ClInclude Include="front_buffer.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-  </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="bitfield.hpp">
+    <ClInclude Include="bitfield.hpp">
       <Filter>Header Files</Filter>
-    </ClCompile>
+    </ClInclude>
   </ItemGroup>
 </Project>

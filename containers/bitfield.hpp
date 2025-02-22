@@ -7,14 +7,14 @@ namespace mpd {
 		template<class BaseT, class FieldT>
 		struct bitfield_getter {
 			static_assert(std::is_integral<BaseT>::value, "non-integer types require a custom bitfield getter");
-			FieldT operator()(BaseT value) const {
+			MPD_INLINE(FieldT) operator()(BaseT value) const {
 				return static_cast<FieldT>(value);
 			}
 		};
 		template<class BaseT, class FieldT>
 		struct bitfield_setter {
 			static_assert(std::is_integral<BaseT>::value, "non-integer types require a custom bitfield getter");
-			BaseT operator()(FieldT value) const {
+			MPD_INLINE(BaseT) operator()(FieldT value) const {
 				return static_cast<BaseT>(value);
 			}
 		};
@@ -39,21 +39,21 @@ namespace std {
 		static const bool is_iec599 = false;
 		static const unsigned digits = bitcount;
 		static const unsigned digits10 = static_cast<unsigned>(digits * log10_2);
-		static constexpr FieldT min() {
+		static constexpr MPD_INLINE(FieldT) min() {
 			if (numeric_limits<FieldT>::is_signed) {
 				return Getter{}(static_cast<BaseT>(1u) << (bitcount - 1u));
 			} else {
 				return Getter{}(static_cast<BaseT>(0u));
 			}
 		}
-		static constexpr FieldT max() {
+		static constexpr MPD_INLINE(FieldT) max() {
 			if (numeric_limits<FieldT>::is_signed) {
 				return Getter{}(lomask >> 1u);
 			} else {
 				return Getter{}(lomask);
 			}
 		}
-		static constexpr FieldT lowest() { return min(); }
+		static constexpr MPD_INLINE(FieldT) lowest() { return min(); }
 	};
 }
 
@@ -94,7 +94,7 @@ namespace mpd {
 
 		constexpr explicit bitfield_member(BaseT& bits_) :bits(&bits_) {}
 		constexpr operator FieldT() const { return get(); }
-		constexpr FieldT get() const {
+		constexpr MPD_INLINE(FieldT) get() const {
 			// Despite appearances, this whole method is branchless
 			BaseT raw_bits = (*bits >> offset) & lomask;
 			BaseT sign_extended_bits;
@@ -107,7 +107,7 @@ namespace mpd {
 			}
 			return Getter::operator()(sign_extended_bits);
 		}
-		constexpr void set(FieldT value) {
+		constexpr MPD_INLINE(void) set(FieldT value) {
 			// Despite appearances, this whole method is branchless
 
 			// ensure that input value is in the range of values that fit
@@ -127,40 +127,34 @@ namespace mpd {
 			}
 			*bits = resetBits | (newBits << offset);
 		}
-		constexpr bitfield_member& operator=(FieldT value) { set(value); return *this; }
-		constexpr bitfield_member& operator++() { set(get()++); return *this; }
-		constexpr FieldT operator++(int) { FieldT t = get(); set(get()++); return t; }
-		constexpr bitfield_member& operator--() { set(get()--); return *this; }
-		constexpr FieldT operator--(int) { FieldT t = get(); set(get()--); return t; }
-		constexpr FieldT operator+() const { return +get(); }
-		constexpr FieldT operator-() const { return -get(); }
-		constexpr FieldT operator!() const { return !get(); }
-		constexpr FieldT operator~() const { return ~get(); }
-		constexpr FieldT operator*(FieldT value) const { return get() * value; }
-		constexpr bitfield_member& operator*=(FieldT value) { set(get() * value); return *this; }
-		constexpr FieldT operator/(FieldT value) const { return get() / value; }
-		constexpr bitfield_member& operator/=(FieldT value) { set(get() / value); return *this; }
-		constexpr FieldT operator%(FieldT value) const { return get() % value; }
-		constexpr bitfield_member& operator%=(FieldT value) { set(get() % value); return *this; }
-		constexpr FieldT operator+(FieldT value) const { return get() + value; }
-		constexpr bitfield_member& operator+=(FieldT value) { set(get() + value); return *this; }
-		constexpr FieldT operator-(FieldT value) const { return get() - value; }
-		constexpr bitfield_member& operator-=(FieldT value) { set(get() - value); return *this; }
-		constexpr FieldT operator<<(FieldT value) const { return get() << value; }
-		constexpr bitfield_member& operator<<=(FieldT value) { set(get() <<= value); return *this; }
-		constexpr FieldT operator>>(FieldT value) const { return get() >> value; }
-		constexpr bitfield_member& operator>>=(FieldT value) { set(get() >>= value); return *this; }
-		//constexpr bool operator<(FieldT value) const { return get() < value; }
-		//constexpr bool operator<=(FieldT value) const { return get() <= value; }
-		//constexpr bool operator>(FieldT value) const { return get() > value; }
-		//constexpr bool operator>=(FieldT value) const { return get() >= value; }
-		//constexpr bool operator==(FieldT value) const { return get() == value; }
-		//constexpr bool operator!=(FieldT value) const { return get() != value; }
-		constexpr FieldT operator&(FieldT value) const { return get() & value; }
-		constexpr bitfield_member& operator&=(FieldT value) { set(get() & value); return *this; }
-		constexpr FieldT operator^(FieldT value) const { return get() ^ value; }
-		constexpr bitfield_member& operator^=(FieldT value) { set(get() ^ value); return *this; }
-		constexpr FieldT operator|(FieldT value) const { return get() | value; }
-		constexpr bitfield_member& operator|=(FieldT value) { set(get() | value); return *this; }
+		constexpr MPD_INLINE(bitfield_member&) operator=(FieldT value) { set(value); return *this; }
+		constexpr MPD_INLINE(bitfield_member&) operator++() { set(get()++); return *this; }
+		constexpr MPD_INLINE(FieldT) operator++(int) { FieldT t = get(); set(get()++); return t; }
+		constexpr MPD_INLINE(bitfield_member&) operator--() { set(get()--); return *this; }
+		constexpr MPD_INLINE(FieldT) operator--(int) { FieldT t = get(); set(get()--); return t; }
+		constexpr MPD_INLINE(FieldT) operator+() const { return +get(); }
+		constexpr MPD_INLINE(FieldT) operator-() const { return -get(); }
+		constexpr MPD_INLINE(FieldT) operator!() const { return !get(); }
+		constexpr MPD_INLINE(FieldT) operator~() const { return ~get(); }
+		constexpr MPD_INLINE(FieldT) operator*(FieldT value) const { return get() * value; }
+		constexpr MPD_INLINE(bitfield_member&) operator*=(FieldT value) { set(get() * value); return *this; }
+		constexpr MPD_INLINE(FieldT) operator/(FieldT value) const { return get() / value; }
+		constexpr MPD_INLINE(bitfield_member&) operator/=(FieldT value) { set(get() / value); return *this; }
+		constexpr MPD_INLINE(FieldT) operator%(FieldT value) const { return get() % value; }
+		constexpr MPD_INLINE(bitfield_member&) operator%=(FieldT value) { set(get() % value); return *this; }
+		constexpr MPD_INLINE(FieldT) operator+(FieldT value) const { return get() + value; }
+		constexpr MPD_INLINE(bitfield_member&) operator+=(FieldT value) { set(get() + value); return *this; }
+		constexpr MPD_INLINE(FieldT) operator-(FieldT value) const { return get() - value; }
+		constexpr MPD_INLINE(bitfield_member&) operator-=(FieldT value) { set(get() - value); return *this; }
+		constexpr MPD_INLINE(FieldT) operator<<(FieldT value) const { return get() << value; }
+		constexpr MPD_INLINE(bitfield_member&) operator<<=(FieldT value) { set(get() <<= value); return *this; }
+		constexpr MPD_INLINE(FieldT) operator>>(FieldT value) const { return get() >> value; }
+		constexpr MPD_INLINE(bitfield_member&) operator>>=(FieldT value) { set(get() >>= value); return *this; }
+		constexpr MPD_INLINE(FieldT) operator&(FieldT value) const { return get() & value; }
+		constexpr MPD_INLINE(bitfield_member&) operator&=(FieldT value) { set(get() & value); return *this; }
+		constexpr MPD_INLINE(FieldT) operator^(FieldT value) const { return get() ^ value; }
+		constexpr MPD_INLINE(bitfield_member&) operator^=(FieldT value) { set(get() ^ value); return *this; }
+		constexpr MPD_INLINE(FieldT) operator|(FieldT value) const { return get() | value; }
+		constexpr MPD_INLINE(bitfield_member&) operator|=(FieldT value) { set(get() | value); return *this; }
 	};
 }
