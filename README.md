@@ -100,6 +100,10 @@ unsigned short foo(TestBitfield& b) {
 }
 ```
 
+  - The `Getter` and `Setter` template parameters are stateless functionoid classes that handle the actual conversion of bits.  
+	The defaults simply `static_cast`, but these can be replaced with arbitray custom conversions, enabling users to put arbitrary
+	types in the bitfield, such as strings.
+
 ### front_buffer.hpp
 
 Helper methods and a wrapper class for working with front-filled buffers.
