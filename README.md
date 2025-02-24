@@ -68,7 +68,15 @@ compatability with C\++14, but may bump that to C\++17 at some point in the futu
 	
 ## Concurrency
 
-TODO: Atomic operations on bitfields
+### atomic_spin.hpp
+
+-  `template<class T, class F, class...Args>`  
+	`std::pair<bool, T> atomic_exchange_spin(std::atomic<T>& atomic, F&& mutation)`  
+Update atomic variable with a non-atomic operation, via a spin/retry. 
+The mutating opeoration should take the value by reference, mutate it,
+and return a `atomic_exchange_result`. `atomic_exchange_spin` calls the mutating operation with the current value of the atomic,
+and then stores the result in the atomic, and returns {true, newValue}.
+If the atomic's value was changed between read and write, atomic_exchange_spin retries.
 
 ## Containers
 

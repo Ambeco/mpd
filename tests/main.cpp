@@ -6,6 +6,7 @@ void test_pimpl();
 void test_pimpl2();
 void test_small_vectors();
 void test_bitfields();
+void test_atomic_spin();
 
 int main() {
 	test_istream_lit();
@@ -15,5 +16,6 @@ int main() {
 	test_pimpl2();
 	test_small_vectors();
 	test_bitfields();
+	test_atomic_spin();
 	return 0;
 }
