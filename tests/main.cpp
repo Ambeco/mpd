@@ -1,3 +1,4 @@
+#include <iostream>
 
 void test_istream_lit();
 void test_small_strings();
@@ -9,6 +10,7 @@ void test_bitfields();
 void test_atomic_spin();
 
 int main() {
+	std::cout << "Starting tests..." << std::endl;
 	test_istream_lit();
 	test_small_strings();
 	test_erasable();
@@ -17,5 +19,6 @@ int main() {
 	test_small_vectors();
 	test_bitfields();
 	test_atomic_spin();
+	std::cout << "Success\n";
 	return 0;
 }
