@@ -18,5 +18,11 @@
     <ClInclude Include="istream_lit.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="async_ifilebuf.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="async_ofilebuf.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

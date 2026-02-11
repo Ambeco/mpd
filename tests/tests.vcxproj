@@ -19,6 +19,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="async_iofilebuf_tests.cpp" />
     <ClCompile Include="atomic_spin_tests.cpp" />
     <ClCompile Include="bitfield_tests.cpp" />
     <ClCompile Include="erasable_tests.cpp" />
