@@ -58,7 +58,7 @@ namespace mpd {
 			if (fill_future.valid()) fill_future.get();
 			in.close();
 		}
-		int underflow() {
+		int underflow() override {
 			char* ptr = gptr();
 			if (ptr != nullptr && ptr != egptr()) {
 				unsigned v = (unsigned) *ptr;
@@ -71,6 +71,15 @@ namespace mpd {
 				fill_future = std::async(std::launch::async, [this]() { worker(); });
 			setg(dumping_buffer.data(), dumping_buffer.data(), dumping_buffer.data() + dumping_buffer.size());
 			return (unsigned) *dumping_buffer.data();
+		}
+		pos_type seekoff(off_type off, std::ios_base::seekdir dir, std::ios_base::openmode = std::ios_base::in) override {
+			if (fill_future.valid()) fill_future.get();
+			fill_future = std::async(std::launch::async, [this, off, dir]() { in.seekg(off, dir);  worker(); });
+			setg(dumping_buffer.data(), dumping_buffer.data(), dumping_buffer.data());
+			return in.tellg();
+		}
+		pos_type seekpos(pos_type pos, std::ios_base::openmode which = std::ios_base::in) override {
+			return seekoff(pos, std::ios_base::beg, which);
 		}
 	};
 }

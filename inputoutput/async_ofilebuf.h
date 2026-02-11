@@ -5,6 +5,7 @@
 
 #include <fstream>
 #include <future>
+#include <iomanip>
 #include <streambuf>
 #include <vector>
 
@@ -74,22 +75,34 @@ namespace mpd {
 			sync();
 			out.close();
 		}
-		int overflow(int c) {
+		int overflow(int c) override {
 			if (c != std::char_traits<char>::eof()) {
+				dump();
 				*pptr() = std::char_traits<char>::to_char_type(c);
 				pbump(1);
-				if (pptr() == pbase() + buffer_dump_size) dump();
 				return std::char_traits<char>::not_eof(c);
 			} else {
 				sync();
 				return c;
 			}
 		}
-		int sync() {
+		int sync() override {
 			dump();
 			if (dump_future.valid()) dump_future.get();
 			out.flush();
 			return 0;
+		}
+		pos_type seekoff(off_type off, std::ios_base::seekdir dir, std::ios_base::openmode = std::ios_base::out) override {
+			dump(); // initiate dump of any pending writes
+			dump_future = std::async(std::launch::async, [this, off, dir, old_dump_future=std::move(dump_future)]() mutable {
+				if (old_dump_future.valid()) old_dump_future.get(); // once that's done, THEN seek, but we don't have to block calling thread for that
+				out.seekp(off, dir); 
+			});
+			setp(dumping_buffer.data(), dumping_buffer.data(), dumping_buffer.data());
+			return out.tellp();
+		}
+		pos_type seekpos(pos_type pos, std::ios_base::openmode which = std::ios_base::out) override {
+			return seekoff(pos, std::ios_base::beg, which);
 		}
 	};
 }

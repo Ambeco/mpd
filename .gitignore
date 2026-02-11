@@ -261,3 +261,5 @@ __pycache__/
 *.pyc
 /tests/inputfile.txt
 /tests/outputFile.txt
+/tests/outputFile1.txt
+/tests/outputFile2.txt
