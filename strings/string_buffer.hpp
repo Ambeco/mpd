@@ -9,39 +9,49 @@
 
 namespace mpd {
 	namespace impl {
-		template<class char_t, char_t capacity_>
+		template<class char_t, char_t capacity_, std::size_t alignment_=alignof(char_t)>
 		class string_buffer_array {
 		public:
 			static_assert(capacity_ < std::numeric_limits<char_t>::max(), "capacity must fit in char_t");
+			static_assert(std::is_trivial_v<char_t>, "char_t must be trivial (default constructors, copy construct, move construct, copy assign, move assign, and destructor all default, recursively)");
 			using value_type = char_t;
 			using size_type = std::size_t;
-		private:
-			std::array<char_t, capacity_ + 1> buffer;
 		protected:
 			static const bool copy_ctor_should_assign = true;
 			static const bool move_ctor_should_assign = true;
 			static const bool copy_assign_should_assign = true;
 			static const bool move_assign_should_assign = true;
 			static const bool dtor_should_destroy = false;
+			static const std::size_t alignment = alignment_;
+			static const std::size_t aligned_capacity_ = ((sizeof(char_t) * capacity_ + alignment_ - 1) / alignment_ * alignment_);
+		private:
+			alignas(alignment_) std::array<char_t, aligned_capacity_> buffer;
+			// ensure that overaligned bytes are zeroed out, so that algorithms can read/write aligned blocks deterministically.
+			void uninit_set_size(size_type s) { 
+				buffer[capacity_] = static_cast<char_t>(capacity_ - s);
+				std::memset(buffer.data() + capacity_, 0, sizeof(char_t) * (aligned_capacity_ - capacity_));
+			}
+		protected:
+			// ensure that bytes between content and size are zeroed out, so that algorithms can read/write aligned blocks deterministically.
 			void set_size(size_type s) noexcept {
 				assume(s <= capacity_);
 				std::memset(buffer.data() + s, 0, (capacity_ - s) * sizeof(char_t));
 				buffer[capacity_] = static_cast<char_t>(capacity_ - s);
 			}
 		public:
-			void uninit_set_size(size_type s) { buffer[capacity_] = static_cast<char_t>(capacity_ - s); }
 			string_buffer_array() noexcept { set_size(0); }
 			string_buffer_array(const string_buffer_array& rhs) noexcept { uninit_set_size(0); }
-			template<char_t capacity2>
-			string_buffer_array(const string_buffer_array<char_t, capacity2>& rhs) noexcept { uninit_set_size(0); }
-			string_buffer_array& operator=(const string_buffer_array<char_t, capacity_>& rhs) noexcept { uninit_set_size(0); return *this; }
-			template<char_t capacity2>
-			string_buffer_array& operator=(const string_buffer_array<char_t, capacity2>& rhs) noexcept { return *this; }
+			template<char_t capacity2, std::size_t align2>
+			string_buffer_array(const string_buffer_array<char_t, capacity2, align2>& rhs) noexcept { uninit_set_size(0); }
+			string_buffer_array& operator=(const string_buffer_array<char_t, capacity_, alignment_>& rhs) noexcept { uninit_set_size(0); return *this; }
+			template<char_t capacity2, std::size_t align2>
+			string_buffer_array& operator=(const string_buffer_array<char_t, capacity2, align2>& rhs) noexcept { return *this; }
 			~string_buffer_array() = default;
-			char_t* data() noexcept { return buffer.data(); }
-			const char_t* data() const noexcept { return buffer.data(); }
+			char_t* data() noexcept { assume(is_aligned_array(buffer.data(), aligned_capacity_, alignment)); return buffer.data(); }
+			const char_t* data() const noexcept { assume(is_aligned_array(buffer.data(), aligned_capacity_, alignment)); return buffer.data(); }
 			size_type size() const noexcept { return capacity_ - buffer[capacity_]; }
 			size_type capacity() const noexcept { return capacity_; }
+			size_type aligned_capacity() const noexcept { assume(is_aligned_array(buffer.data(), aligned_capacity_, alignment)); }
 			std::allocator<char_t> get_allocator() const { return {}; }
 		};
 	}
@@ -74,7 +84,7 @@ namespace mpd {
 #if __cplusplus >=  201703L
 		using basic_string_view = std::basic_string_view<char_t>;
 #endif
-		using buffer_reference = string_buffer<impl::front_buffer_reference_state<value_type, size_type>, overflow>;
+		using buffer_reference = string_buffer<impl::front_buffer_reference_state<value_type, size_type, state::alignment>, overflow>;
 
 		string_buffer(const string_buffer& rhs) noexcept(noexcept(base_t(rhs))) :base_t(rhs) {}
 		string_buffer(string_buffer&& rhs) noexcept(noexcept(base_t(std::move(rhs)))) :base_t(std::move(rhs)) {}
@@ -757,14 +767,15 @@ namespace mpd {
 		// TODO: starts_with
 		// TODO: ends_with
 		// TODO: contains
-		string_buffer substr(size_type pos = 0, size_type count = npos) const& {
+		template<class state2=state, overflow_behavior_t overflow2 = overflow>
+		string_buffer<state2, overflow2> substr(size_type pos = 0, size_type count = npos) const& {
 			assume(pos <= size());
 			if (count == npos) count = size() - pos;
 			assume(pos + count <= size());
-			return string_buffer(data() + pos, data() + pos + count);
+			return string_buffer<state2, overflow2>(data() + pos, data() + pos + count);
 		}
-		template<size_type capacity_, overflow_behavior_t overflow2 = overflow>
-		string_buffer<impl::string_buffer_array<char_t, capacity_>, overflow2>
+		template<size_type capacity_, overflow_behavior_t overflow2 = overflow, std::size_t align2 = state::alignment>
+		string_buffer<impl::string_buffer_array<char_t, capacity_, align2>, overflow2>
 			substr(size_type pos = 0, std::integral_constant<size_type, capacity_> count = {}) const& {
 			assume(pos <= size());
 			size_type c = count;
@@ -1082,17 +1093,18 @@ namespace mpd {
 		return val;
 	}
 
-	template<char capacity, overflow_behavior_t overflow = overflow_behavior_t::exception>
-	using array_string = string_buffer<impl::string_buffer_array<char, capacity>, overflow>;
-	template<wchar_t capacity, overflow_behavior_t overflow = overflow_behavior_t::exception>
-	using array_wstring = string_buffer<impl::string_buffer_array<wchar_t, capacity>, overflow>;
+		// TODO: only overalign if trivial
+	template<char capacity, overflow_behavior_t overflow = overflow_behavior_t::exception, std::size_t alignment=alignof(max_align_t)>
+	using array_string = string_buffer<impl::string_buffer_array<char, capacity, alignment>, overflow>;
+	template<wchar_t capacity, overflow_behavior_t overflow = overflow_behavior_t::exception, std::size_t alignment = alignof(max_align_t)>
+	using array_wstring = string_buffer<impl::string_buffer_array<wchar_t, capacity, alignment>, overflow>;
 #if __cplusplus >=  201703L
-	template<char8_t capacity, overflow_behavior_t overflow = overflow_behavior_t::exception>
-	using array_u8string = string_buffer<impl::string_buffer_array<char8_t, capacity>, overflow>;
-	template<char16_t capacity, overflow_behavior_t overflow = overflow_behavior_t::exception>
-	using array_u16string = string_buffer<impl::string_buffer_array<char16_t, capacity>, overflow>;
-	template<char32_t capacity, overflow_behavior_t overflow = overflow_behavior_t::exception>
-	using array_u32string = string_buffer<impl::string_buffer_array<char32_t, capacity>, overflow>;
+	template<char8_t capacity, overflow_behavior_t overflow = overflow_behavior_t::exception, std::size_t alignment = alignof(max_align_t)>
+	using array_u8string = string_buffer<impl::string_buffer_array<char8_t, capacity, alignment>, overflow>;
+	template<char16_t capacity, overflow_behavior_t overflow = overflow_behavior_t::exception, std::size_t alignment = alignof(chamax_align_tr16_t)>
+	using array_u16string = string_buffer<impl::string_buffer_array<char16_t, capacity, alignment>, overflow>;
+	template<char32_t capacity, overflow_behavior_t overflow = overflow_behavior_t::exception, std::size_t alignment = alignof(max_align_t)>
+	using array_u32string = string_buffer<impl::string_buffer_array<char32_t, capacity, alignment>, overflow>;
 #endif
 
 	//TODO: to_string

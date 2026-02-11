@@ -42,7 +42,7 @@ namespace mpd {
 	}
 
 	namespace impl {
-		template <class T, class ForwardIterator>
+		template <class T, std::size_t alignment = alignof(T), class ForwardIterator>
 		void front_buffer_insert_front_unchecked(
 			T* buffer,
 			std::size_t size,
@@ -61,6 +61,7 @@ namespace mpd {
 				&& std::is_nothrow_move_constructible_v<T>
 				&& std::is_nothrow_move_assignable_v<T>
 				&& std::is_nothrow_assignable_v<T, decltype(*src_construct_it)>) {
+			assume(is_aligned_array(buffer, capacity, alignment));
 			// step 2: validate the plan
 			assume(insert_assign + insert_construct == insert_total);
 			assume(insert_total <= capacity);
@@ -98,16 +99,17 @@ namespace mpd {
 			}
 		}
 
-		template <overflow_behavior_t overflow, class T, class ForwardIterator>
+		template <overflow_behavior_t overflow, class T, std::size_t alignment = alignof(T), class ForwardIterator>
 		std::size_t front_buffer_insert_front(T* buffer, std::size_t size, std::size_t capacity, ForwardIterator src_first, ForwardIterator src_last, std::forward_iterator_tag dispatch_tag)
 			noexcept(noexcept(max_length_check<overflow>(0, 0))
-				&& noexcept(front_buffer_insert_front_unchecked(buffer, size, capacity, src_first, src_last, 0, 0, 0, 0, 0, 0, 0))) {
+				&& noexcept(front_buffer_insert_front_unchecked<T, alignment>(buffer, size, capacity, src_first, src_last, 0, 0, 0, 0, 0, 0, 0))) {
 			// despite the line count, this is only a single read pass (std::distance) and a single write pass.
+			assume(is_aligned_array(buffer, capacity, alignment));
 			assert(capacity <= std::numeric_limits<std::size_t>::max() / 4u / sizeof(T));
 			assume(size <= capacity);
 
 			// step 1: count how many to assign / insert / move (linear time for forward-iterators, constant time for random access iterators)
-			typename std::iterator_traits<ForwardIterator>::iterator_category tag;
+			typename std::iterator_traits<ForwardIterator>::iterator_category tag{};
 			auto assign_it_and_count = next_up_to_n(src_first, src_last, size, tag);
 			ForwardIterator src_construct_it = assign_it_and_count.first;
 			std::size_t insert_assign = assign_it_and_count.second;
@@ -125,11 +127,11 @@ namespace mpd {
 
 			// step 2: validate the plan
 			// step 3: execute the plan (linear time)
-			front_buffer_insert_front_unchecked(buffer, size, capacity, src_first, src_construct_it, insert_assign, move_assign, insert_construct, move_construct, insert_total, move_construct_idx, final_size);
+			front_buffer_insert_front_unchecked<T, alignment>(buffer, size, capacity, src_first, src_construct_it, insert_assign, move_assign, insert_construct, move_construct, insert_total, move_construct_idx, final_size);
 			return final_size;
 		}
 
-		template <overflow_behavior_t overflow, class T, class ForwardIterator>
+		template <overflow_behavior_t overflow, class T, std::size_t alignment = alignof(T), class ForwardIterator>
 		std::size_t front_buffer_insert_front(T* buffer, std::size_t size, std::size_t capacity, ForwardIterator first, ForwardIterator last, std::input_iterator_tag)
 			noexcept(noexcept(max_length_check<overflow>(0, 0))
 				&& std::is_nothrow_constructible_v<T, decltype(*first)>
@@ -137,6 +139,7 @@ namespace mpd {
 				&& std::is_nothrow_move_assignable_v<T>
 				&& std::is_nothrow_assignable_v<T, decltype(*first)>) {
 			// we can't know the insert size beforehand, so this gets trickier. This usually takes 3-4 write passes.
+			assume(is_aligned_array(buffer, capacity, alignment));
 			assert(size < capacity);
 
 			// step 1: append the new items to the data already in the buffer
@@ -187,25 +190,28 @@ namespace mpd {
 		}
 	}
 
-	template<overflow_behavior_t overflow, class T>
+	template<overflow_behavior_t overflow, class T, std::size_t alignment = alignof(T)>
 	std::size_t front_buffer_append_value_construct(T* buffer, std::size_t size, std::size_t capacity, std::size_t count)
 		noexcept(noexcept(impl::max_length_check<overflow>(0, 0)) && std::is_nothrow_constructible_v<T>) {
+		assume(is_aligned_array(buffer, capacity, alignment));
 		std::size_t new_size = impl::max_length_check<overflow>(size + count, capacity);
 		uninitialized_value_construct(buffer + size, buffer + new_size);
 		return new_size;
 	}
 
-	template<overflow_behavior_t overflow, class T>
+	template<overflow_behavior_t overflow, class T, std::size_t alignment = alignof(T)>
 	std::size_t front_buffer_append_default_construct(T* buffer, std::size_t size, std::size_t capacity, std::size_t count)
 		noexcept(noexcept(impl::max_length_check<overflow>(0, 0)) && std::is_nothrow_constructible_v<T>) {
+		assume(is_aligned_array(buffer, capacity, alignment));
 		std::size_t new_size = impl::max_length_check<overflow>(size + count, capacity);
 		uninitialized_default_construct(buffer + size, buffer + new_size);
 		return new_size;
 	}
 
-	template<overflow_behavior_t overflow, class T, class...Args>
+	template<overflow_behavior_t overflow, class T, std::size_t alignment = alignof(T), class...Args>
 	std::size_t front_buffer_emplace_back(T* buffer, std::size_t size, std::size_t capacity, Args&&...args)
 		noexcept(noexcept(impl::max_length_check<overflow>(0, 0)) && std::is_nothrow_constructible_v<T, Args...>) {
+		assume(is_aligned_array(buffer, capacity, alignment));
 		assume(size <= capacity);
 		if (size != impl::max_length_check<overflow>(size + 1, capacity)) {
 			construct_at<T>(buffer + size, std::forward<Args>(args)...);
@@ -213,11 +219,12 @@ namespace mpd {
 		return size + 1;
 	}
 
-	template<overflow_behavior_t overflow, class T, class SourceIt>
+	template<overflow_behavior_t overflow, class T, std::size_t alignment = alignof(T), class SourceIt>
 	std::size_t front_buffer_append(T* buffer, std::size_t size, std::size_t capacity, SourceIt src_first, SourceIt src_last)
 		noexcept(noexcept(impl::max_length_check<overflow>(0, 0))
 			&& noexcept(std::is_constructible_v<T, decltype(*src_first)>)
 			&& std::is_base_of_v<std::forward_iterator_tag, typename std::iterator_traits<SourceIt>::iterator_category>) {
+		assume(is_aligned_array(buffer, capacity, alignment));
 		assume(size <= capacity);
 		// this branch is evaluated at compile time, so only one or the other exists in bytecode
 		if (std::is_base_of_v<std::forward_iterator_tag, typename std::iterator_traits<SourceIt>::iterator_category>) {
@@ -245,24 +252,27 @@ namespace mpd {
 		}
 	}
 
-	template <class T>
+	template <class T, std::size_t alignment = alignof(T)>
 	std::size_t front_buffer_pop_back(T* buffer, std::size_t size, std::size_t erase_count) noexcept {
+		assume(is_aligned_ptr(buffer, alignment));
 		assume(erase_count <= size);
 		std::size_t final_size = size - erase_count;
 		destroy(buffer + final_size, buffer + size);
 		return final_size;
 	}
 
-	template <overflow_behavior_t overflow, class T, class ForwardIterator>
+	template <overflow_behavior_t overflow, class T, std::size_t alignment = alignof(T), class ForwardIterator>
 	std::size_t front_buffer_insert(T* buffer, std::size_t size, std::size_t capacity, std::size_t pos, ForwardIterator src_first, ForwardIterator src_last)
-		noexcept(noexcept(impl::front_buffer_insert_front<overflow>(buffer, size, capacity, src_first, src_last, typename std::iterator_traits<ForwardIterator>::iterator_category{}))) {
+		noexcept(noexcept(impl::front_buffer_insert_front<overflow, T, alignment>(buffer, size, capacity, src_first, src_last, typename std::iterator_traits<ForwardIterator>::iterator_category{}))) {
+		assume(is_aligned_array(buffer, capacity, alignment));
 		assume(pos <= size);
 		assume(size <= capacity);
-		return pos + impl::front_buffer_insert_front<overflow>(buffer + pos, size - pos, capacity - pos, src_first, src_last, typename std::iterator_traits<ForwardIterator>::iterator_category());
+		return pos + impl::front_buffer_insert_front<overflow, T, alignment>(buffer + pos, size - pos, capacity - pos, src_first, src_last, typename std::iterator_traits<ForwardIterator>::iterator_category());
 	}
 
-	template <class T>
+	template <class T, std::size_t alignment = alignof(T)>
 	std::size_t front_buffer_erase(T* buffer, std::size_t size, std::size_t pos, std::size_t erase_count) noexcept(std::is_nothrow_move_assignable_v<T>) {
+		assume(is_aligned_ptr(buffer, alignment));
 		assume(pos <= size);
 		assume(pos + erase_count <= size);
 		std::size_t final_size = size - erase_count;
@@ -271,9 +281,10 @@ namespace mpd {
 		return final_size;
 	}
 
-	template<overflow_behavior_t overflow, class T, class Predicate>
+	template<overflow_behavior_t overflow, class T, std::size_t alignment = alignof(T), class Predicate>
 	std::size_t front_buffer_erase_if(T* buffer, std::size_t size, Predicate pred)
 		noexcept(noexcept(pred(buffer[0]) && std::is_move_assignable_v<T>)) {
+		assume(is_aligned_array(buffer, capacity, alignment));
 		T* newEnd = std::remove_if(buffer, buffer + size, pred);
 		assume(newEnd >= buffer);
 		assume(newEnd <= buffer + size);
@@ -282,45 +293,47 @@ namespace mpd {
 	}
 
 
-	template<overflow_behavior_t overflow, class T, class...Args>
+	template<overflow_behavior_t overflow, class T, std::size_t alignment = alignof(T), class...Args>
 	std::size_t front_buffer_emplace(T* buffer, std::size_t size, std::size_t capacity, const std::size_t pos, Args&&...args)
 		noexcept(noexcept(impl::max_length_check<overflow>(0, 0))
 			&& std::is_nothrow_constructible_v<T, Args...>
 			&& std::is_nothrow_move_constructible_v<T>
 			&& std::is_nothrow_move_assignable_v<T>) {
+		assume(is_aligned_array(buffer, capacity, alignment));
 		if (pos == size) {
-			return front_buffer_emplace_back<overflow>(buffer, size, capacity, std::forward<Args>(args)...);
+			return front_buffer_emplace_back<overflow, T, alignment>(buffer, size, capacity, std::forward<Args>(args)...);
 		} else {
 			T t(std::forward<Args>(args)...);
-			return front_buffer_insert<overflow>(buffer, size, capacity, pos, std::make_move_iterator(&t), std::make_move_iterator(&t + 1));
+			return front_buffer_insert<overflow, T, alignment>(buffer, size, capacity, pos, std::make_move_iterator(&t), std::make_move_iterator(&t + 1));
 		}
 	}
 
-	template <overflow_behavior_t overflow, class T, class SourceIterator>
+	template <overflow_behavior_t overflow, class T, std::size_t alignment = alignof(T), class SourceIterator>
 	std::size_t front_buffer_replace(T* buffer, std::size_t size, std::size_t capacity, std::size_t pos, std::size_t replace_count, SourceIterator source_begin, SourceIterator source_end)
-		noexcept(noexcept(impl::front_buffer_insert_front<overflow>(buffer, size, capacity, SourceIterator(), SourceIterator(), typename std::iterator_traits<SourceIterator>::iterator_category()))) {
-		typename std::iterator_traits<SourceIterator>::iterator_category tag;
+		noexcept(noexcept(impl::front_buffer_insert_front<overflow, T, alignment>(buffer, size, capacity, SourceIterator(), SourceIterator(), typename std::iterator_traits<SourceIterator>::iterator_category()))) {
+		typename std::iterator_traits<SourceIterator>::iterator_category tag{};
+		assume(is_aligned_array(buffer, capacity, alignment));
 		assume(size <= capacity);
 		assume(pos <= size);
 		assume(pos + replace_count <= size);
-		T* replace_end;
+		T* replace_end = nullptr;
 		// TODO: use tag + distance to optimize capacity check
 		std::tie(source_begin, replace_end) = copy_s(source_begin, source_end, buffer + pos, buffer + pos + replace_count);
 		assume(replace_end >= buffer + pos);
 		assume(replace_end <= buffer + pos + replace_count);
 		std::size_t next_idx = replace_end - buffer;
 		if (source_begin != source_end) { // source is bigger than replacement. need to insert
-			return next_idx + impl::front_buffer_insert_front<overflow>(buffer + next_idx, size - next_idx, capacity - next_idx, source_begin, source_end, tag);
+			return next_idx + impl::front_buffer_insert_front<overflow, T, alignment>(buffer + next_idx, size - next_idx, capacity - next_idx, source_begin, source_end, tag);
 		} else if (replace_end != buffer + pos + replace_count) { // source is smaller than replacement
 			std::size_t replaced = next_idx - pos;
-			return front_buffer_erase(buffer, size, next_idx, replace_count - replaced);
+			return front_buffer_erase<T, alignment>(buffer, size, next_idx, replace_count - replaced);
 		} else { // source was the same size as replacement. All done.
 			return size;
 		}
 	}
 
 	namespace impl {
-		template<class T, class size_t = std::size_t>
+		template<class T, class size_t = std::size_t, std::size_t alignment_ = alignof(T)>
 		class front_buffer_reference_state {
 			T* buffer;
 			size_t* sz;
@@ -331,111 +344,135 @@ namespace mpd {
 			static const bool copy_assign_should_assign = true;
 			static const bool move_assign_should_assign = false;
 			static const bool dtor_should_destroy = false;
+			static const std::size_t alignment = alignment_;
 			void set_size(size_t s) noexcept { *sz = s; }
 		public:
 			using value_type = T;
 			using size_type = size_t;
-			front_buffer_reference_state(T* buffer_, size_t* size_, size_t capacity_) noexcept :buffer(buffer_), sz(size_), max(capacity_) {}
-			front_buffer_reference_state(const front_buffer_reference_state& rhs) noexcept :buffer(rhs.data()), sz(rhs.size()), max(rhs.max) {}
-			front_buffer_reference_state(front_buffer_reference_state&& rhs) noexcept :buffer(rhs.data()), sz(rhs.size()), max(rhs.max) {}
+			front_buffer_reference_state(T* buffer_, size_t* size_, size_t capacity_) noexcept :buffer(buffer_), sz(size_), max(capacity_)
+			{ assume(is_aligned_array(buffer, max, alignment)); }
+			front_buffer_reference_state(const front_buffer_reference_state& rhs) noexcept :buffer(rhs.data()), sz(rhs.size()), max(rhs.max)
+			{ assume(is_aligned_array(buffer, max, alignment)); }
+			front_buffer_reference_state(front_buffer_reference_state&& rhs) noexcept :buffer(rhs.data()), sz(rhs.size()), max(rhs.max) 
+			{ assume(is_aligned_array(buffer, max, alignment)); }
+
 			front_buffer_reference_state& operator=(front_buffer_reference_state&& rhs) noexcept {
 				buffer = rhs.buffer;
 				sz = rhs.size;
 				max = rhs.max;
 				return *this;
 			}
-			template<class U, class size_t2>
-			front_buffer_reference_state& operator=(const front_buffer_reference_state<U, size_t2>& rhs) noexcept {}
+			template<class U, class size_t2, std::size_t align2>
+			front_buffer_reference_state& operator=(const front_buffer_reference_state<U, size_t2, align2>& rhs) noexcept {}
 			~front_buffer_reference_state() = default;
-			T* data() noexcept { return buffer; }
-			const T* data() const noexcept { return buffer; }
+			T* data() noexcept { assume(is_aligned_array(buffer, max, alignment)); return buffer; }
+			const T* data() const noexcept { assume(is_aligned_array(buffer, max, alignment)); return buffer; }
 			size_t size() const noexcept { return *sz; }
-			size_t capacity() const noexcept { return max; }
+			size_t capacity() const noexcept { assume(is_aligned_array(buffer, max, alignment)); return max; }
 			std::allocator<T> get_allocator() const { return {}; }
 		};
 
-		template<class T, std::size_t capacity_>
+		// TODO: only overalign if trivial
+		template<class T, std::size_t capacity_, std::size_t alignment_ = std::max(alignof(T), alignof(max_align_t))>
 		class front_buffer_array_state {
 		public:
 			using value_type = T;
 			using size_type = std::conditional_t<(capacity_ >= 255), unsigned short, unsigned char>;
 			static_assert(capacity_ < std::numeric_limits<size_type>::max(), "capacity doesn't fit in size_type");
-		private:
-			size_type sz;
-			union data {
-				char no_construct;
-				T buffer[capacity_];
-				data() {}
-				~data() {}
-			} d;
 		protected:
 			static const bool copy_ctor_should_assign = true;
 			static const bool move_ctor_should_assign = true;
 			static const bool copy_assign_should_assign = true;
 			static const bool move_assign_should_assign = true;
 			static const bool dtor_should_destroy = false;
+			static const std::size_t alignment = alignment_;
+			static const std::size_t aligned_capacity_ = ((sizeof(T) * capacity_ + alignment_ - 1) / alignment_ * alignment_);
+		private:
+			size_type sz;
+			union data {
+				char no_construct;
+				alignas(alignment_) T buffer[aligned_capacity_];
+				data() {}
+				~data() {}
+			} d;
+			// ensure that overaligned bytes are zeroed out, so that algorithms can read/write aligned blocks deterministically.
+			void init_overaligned() noexcept {
+				if (std::is_trivially_copyable_v<T>)
+					std::memset(d.buffer + capacity_, 0, sizeof(T)*(aligned_capacity() - capacity_)); 
+			}
+		protected:
 			void set_size(size_type s) noexcept {  assume(s <= capacity_); sz = s; }
 		public:
-			front_buffer_array_state() noexcept :sz(0) {}
-			front_buffer_array_state(const front_buffer_array_state& rhs) noexcept : sz(0) {}
-			template<class U, std::size_t capacity2>
-			front_buffer_array_state(const front_buffer_array_state<U, capacity2>& rhs) noexcept :sz(0) {}
+			front_buffer_array_state() noexcept :sz(0) { init_overaligned(); }
+			front_buffer_array_state(const front_buffer_array_state& rhs) noexcept : sz(0) { init_overaligned(); }
+			template<class U, std::size_t capacity2, std::size_t align2>
+			front_buffer_array_state(const front_buffer_array_state<U, capacity2, align2>& rhs) noexcept :sz(0) { init_overaligned(); }
 			front_buffer_array_state& operator=(const front_buffer_array_state& rhs) noexcept { return *this; }
-			template<class U, std::size_t capacity2>
-			front_buffer_array_state& operator=(const front_buffer_array_state<U, capacity2>& rhs) noexcept { return *this; }
+			template<class U, std::size_t capacity2, std::size_t align2>
+			front_buffer_array_state& operator=(const front_buffer_array_state<U, capacity2, align2>& rhs) noexcept { return *this; }
 			~front_buffer_array_state() { }
-			T* data() noexcept { return d.buffer; }
-			const T* data() const noexcept { return d.buffer; }
+			T* data() noexcept { assume(is_aligned_array(d.buffer, aligned_capacity_, alignment)); return d.buffer; }
+			const T* data() const noexcept { assume(is_aligned_array(d.buffer, aligned_capacity_, alignment)); return d.buffer; }
 			size_type size() const noexcept { return sz; }
 			size_type capacity() const noexcept { return capacity_; }
+			size_type aligned_capacity() const noexcept { assume(is_aligned_array(d.buffer, aligned_capacity_, alignment)); return capacity_; }
 			std::allocator<T> get_allocator() const { return {}; }
 		};
 
-		template<class T, class Allocator>
-		class front_buffer_vector_state : Allocator::template rebind<T>::type{
+		template<class T, class Allocator, std::size_t alignment_ = alignof(T)>
+		class front_buffer_heap_state : Allocator::template rebind<T>::type{
 		public:
 			using value_type = T;
 			using size_type = std::size_t;
 			using allocator = typename Allocator::template rebind<T>::type;
-		private:
-			size_type max;
-			size_type sz;
-			T* buffer;
-		protected:
 			static const bool copy_ctor_should_assign = true;
 			static const bool move_ctor_should_assign = false;
 			static const bool copy_assign_should_assign = true;
 			static const bool move_assign_should_assign = false;
 			static const bool dtor_should_destroy = false;
-			void set_size(size_type s) noexcept { sz = s; }
-		public:
-			explicit front_buffer_vector_state(size_type capacity_)
-				:max(capacity_), sz(0), buffer(new char[sizeof(T) * capacity_]) {}
-			explicit front_buffer_vector_state(size_type capacity_, const Allocator& a)
-				:allocator(a), max(capacity_), sz(0), buffer(a.allocate(capacity_)) {}
-			template<class U, class Allocator2>
-			front_buffer_vector_state(const front_buffer_vector_state<U, Allocator2>& rhs)
-				: allocator(rhs), max(rhs.max), sz(0), buffer(new char[sizeof(T) * rhs.sz]) {}
-			front_buffer_vector_state(front_buffer_vector_state&& rhs)
-				:allocator(rhs), max(rhs.max), sz(rhs.sz), buffer(rhs.buffer) {
-				rhs.max = 0; rhs.sz = 0; rhs.buffer = nullptr;
+			static const std::size_t alignment = alignment_;
+		private:
+			size_type max;
+			size_type sz;
+			T* buffer;
+			// ensure that overaligned bytes are zeroed out, so that algorithms can read/write aligned blocks deterministically.
+			void init_overaligned() noexcept { 
+				if (std::is_trivially_copyable_v<T>)
+					std::memset(buffer + max, 0, sizeof(T)*(aligned_capacity()-capacity));
 			}
-			~front_buffer_vector_state() { allocator::deallocate(buffer); }
-			template<class U, class Allocator2>
-			front_buffer_vector_state& operator=(const front_buffer_vector_state<U, Allocator2>& rhs) {
+		protected:
+			void set_size(size_type s) noexcept { sz = s; }
+			static size_type aligned_capacity(size_type capcity) {
+				return (sizeof(T) * capcity + alignment_ - 1) / alignment_ * alignment_;
+			}
+		public:
+			explicit front_buffer_heap_state(size_type capacity_)
+				:max(capacity_), sz(0), buffer(allocate(aligned_capacity(capacity))) { init_overaligned(); }
+			explicit front_buffer_heap_state(size_type capacity_, const Allocator& a)
+				:allocator(a), max(capacity_), sz(0), buffer(a.allocate(aligned_capacity(capacity))) { init_overaligned(); }
+			template<class U, class Allocator2, std::size_t align2>
+			front_buffer_heap_state(const front_buffer_heap_state<U, Allocator2, align2>& rhs)
+				: allocator(rhs), max(rhs.max), sz(0), buffer(allocate(rhs.aligned_capacity())) { init_overaligned(); }
+			front_buffer_heap_state(front_buffer_heap_state&& rhs)
+				:allocator(rhs), max(rhs.max), sz(rhs.sz), buffer(rhs.buffer) 
+			{ rhs.max = 0; rhs.sz = 0; rhs.buffer = nullptr; }
+			~front_buffer_heap_state() { allocator::deallocate(buffer); }
+			template<class U, class Allocator2, std::size_t align2>
+			front_buffer_heap_state& operator=(const front_buffer_heap_state<U, Allocator2, align2>& rhs) {
 				allocator::operator=(rhs); return *this;
 			}
-			front_buffer_vector_state& operator=(front_buffer_vector_state&& rhs) {
+			front_buffer_heap_state& operator=(front_buffer_heap_state&& rhs) {
 				allocator::operator=(rhs);
 				std::swap(max, rhs.max);
 				std::swap(sz, rhs.sz);
 				std::swap(buffer, rhs.buffer);
 				return *this;
 			}
-			T* data() noexcept { return buffer; }
-			const T* data() const noexcept { return buffer; }
+			T* data() noexcept { assume(is_aligned_ptr(buffer, alignment));  return buffer; }
+			const T* data() const noexcept { assume(is_aligned_ptr(buffer, alignment)); return buffer; }
 			size_type size() const noexcept { return sz; }
 			size_type capacity() const noexcept { return max; }
+			size_type aligned_capacity() const noexcept { return aligned_capacity(max); }
 			std::allocator<T> get_allocator() const { return {}; }
 		};
 
@@ -451,6 +488,7 @@ namespace mpd {
 		static const bool copy_assign_should_assign = state::copy_assign_should_assign;
 		static const bool move_assign_should_assign = state::move_assign_should_assign;
 		static const bool dtor_should_destroy = state::dtor_should_destroy;
+		static const std::size_t alignment = state::alignment;
 		T* d() noexcept { return state::data(); }
 		const T* d() const noexcept { return state::data(); }
 		typename state::size_type s() const noexcept { return state::size(); }
@@ -468,7 +506,7 @@ namespace mpd {
 		using const_iterator = const T*;
 		using reverse_iterator = std::reverse_iterator<T*>;
 		using const_reverse_iterator = std::reverse_iterator<const T*>;
-		using buffer_reference = basic_front_buffer<impl::front_buffer_reference_state<T, size_type>, overflow>;
+		using buffer_reference = basic_front_buffer<impl::front_buffer_reference_state<T, size_type, alignment>, overflow>;
 
 		basic_front_buffer() noexcept(noexcept(state())) { sets(0); }
 		explicit basic_front_buffer(state&& s) noexcept(noexcept(state(s))) : state(s) {}
@@ -712,14 +750,15 @@ namespace mpd {
 	}
 
 	//note that as a reference this is NON owning.
-	template<class T, overflow_behavior_t overflow = overflow_behavior_t::exception>
-	using buffer_reference = basic_front_buffer<impl::front_buffer_reference_state<T>, overflow>;
+	template<class T, overflow_behavior_t overflow = overflow_behavior_t::exception, class size_t = std::size_t, std::size_t alignment = alignof(T)>
+	using buffer_reference = basic_front_buffer<impl::front_buffer_reference_state<T, size_t, alignment>, overflow>;
 
-	template<class T, std::size_t capacity, overflow_behavior_t overflow = overflow_behavior_t::exception>
-	using array_buffer = basic_front_buffer<impl::front_buffer_array_state<T, capacity>, overflow>;
+		// TODO: only overalign if trivial
+	template<class T, std::size_t capacity, overflow_behavior_t overflow = overflow_behavior_t::exception, std::size_t alignment = std::max(alignof(T), alignof(max_align_t))>
+	using array_buffer = basic_front_buffer<impl::front_buffer_array_state<T, capacity, alignment>, overflow>;
 
-	template<class T, class Allocator = std::allocator<T>, overflow_behavior_t overflow = overflow_behavior_t::exception>
-	using dynamic_buffer = basic_front_buffer<impl::front_buffer_vector_state<T, Allocator>, overflow>;
+	template<class T, class Allocator = std::allocator<T>, overflow_behavior_t overflow = overflow_behavior_t::exception, std::size_t alignment = alignof(T)>
+	using dynamic_buffer = basic_front_buffer<impl::front_buffer_heap_state<T, Allocator, alignment>, overflow>;
 }
 namespace std {
 	template<class state, mpd::overflow_behavior_t overflow>

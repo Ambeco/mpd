@@ -2,8 +2,19 @@
 #include <iterator>
 #include <memory>
 #include <utility>
+#include "../utilities/macros.hpp"
 
 namespace mpd {
+	template<class T>
+	constexpr bool is_aligned_ptr(T* p, std::size_t alignment) {
+		return reinterpret_cast<uintptr_t>(p) % alignment == 0;
+	}
+	template<class T>
+	constexpr bool is_aligned_array(T* p, std::size_t size, std::size_t alignment) {
+		uintptr_t begin = reinterpret_cast<uintptr_t>(p);
+		uintptr_t end = reinterpret_cast<uintptr_t>(size * sizeof(T));
+		return (begin % alignment == 0) && (end % alignment == 0);
+	}
 
 #if __cplusplus >=  201703L
 	using std::destroy;

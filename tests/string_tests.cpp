@@ -8,8 +8,11 @@
 #include <cwchar>
 
 using w5string = mpd::array_wstring<5, mpd::overflow_behavior_t::truncate>;
-using w7string = mpd::array_wstring<7, mpd::overflow_behavior_t::truncate>;
+using w7string = mpd::array_wstring<7, mpd::overflow_behavior_t::truncate, alignof(wchar_t)>;
 using c5string = mpd::array_string<5, mpd::overflow_behavior_t::truncate>;
+static_assert(alignof(w5string) == alignof(max_align_t), "w5string should be max aligned");
+static_assert(alignof(w7string) == alignof(wchar_t), "w7string should be wchar_t aligned");
+static_assert(alignof(c5string) == alignof(max_align_t), "c5string should be max aligned");
 
 struct wchar_input_iter {
 	using value_type = wchar_t;
