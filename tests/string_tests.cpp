@@ -331,7 +331,7 @@ void test_small_strings() {
 	test_is(stod(w5string(L"12.34")), 12.34);
 	test_is(stold(c5string("12.34")), 12.34l);
 	test_is(stold(w5string(L"12.34")), 12.34l);
-	test_is(hasher(L""), 0x9e3779b9ull);
-	test_is(hasher(L"ab"), 11093822421318ull);
-	test_is(hasher(L"ba"), 11093822421638ull);
+	test_is(hasher(L""), 2220239839302836627ull);
+	test_is(hasher(L"ab"), 8270537381191443548ull);
+	test_is(hasher(L"ba"), 1250039036060834774ull);
 }

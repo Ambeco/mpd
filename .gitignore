@@ -263,3 +263,4 @@ __pycache__/
 /tests/outputFile.txt
 /tests/outputFile1.txt
 /tests/outputFile2.txt
+/enc_temp_folder

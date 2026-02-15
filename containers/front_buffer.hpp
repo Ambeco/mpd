@@ -1,5 +1,6 @@
 #pragma once
 #include "algorithms/algorithm.hpp"
+#include "iterators/bytebuffer_iterator.hpp"
 #include "iterators/iterator.hpp"
 #include "iterators/reference_iterator.hpp"
 #include "utilities/macros.hpp"
@@ -140,7 +141,7 @@ namespace mpd {
 				&& std::is_nothrow_assignable_v<T, decltype(*first)>) {
 			// we can't know the insert size beforehand, so this gets trickier. This usually takes 3-4 write passes.
 			assume(is_aligned_array(buffer, capacity, alignment));
-			assert(size < capacity);
+			assert(size <= capacity);
 
 			// step 1: append the new items to the data already in the buffer
 			//std::size_t max_construct_count = capacity - size;
@@ -346,14 +347,16 @@ namespace mpd {
 			static const bool dtor_should_destroy = false;
 			static const std::size_t alignment = alignment_;
 			void set_size(size_t s) noexcept { *sz = s; }
+			static size_t calc_aligned(size_t max) { return (sizeof(T) * max + alignment_ - 1) / alignment_ * alignment_ / sizeof(T); }
 		public:
 			using value_type = T;
 			using size_type = size_t;
+			using bytebuffer_value_type = mpd::best_bytebuffer_type_t<T, alignment_, alignment>;
 			front_buffer_reference_state(T* buffer_, size_t* size_, size_t capacity_) noexcept :buffer(buffer_), sz(size_), max(capacity_)
 			{ assume(is_aligned_array(buffer, max, alignment)); }
 			front_buffer_reference_state(const front_buffer_reference_state& rhs) noexcept :buffer(rhs.data()), sz(rhs.size()), max(rhs.max)
 			{ assume(is_aligned_array(buffer, max, alignment)); }
-			front_buffer_reference_state(front_buffer_reference_state&& rhs) noexcept :buffer(rhs.data()), sz(rhs.size()), max(rhs.max) 
+			front_buffer_reference_state(front_buffer_reference_state&& rhs) noexcept :buffer(rhs.data()), sz(rhs.size()), max(rhs.max)
 			{ assume(is_aligned_array(buffer, max, alignment)); }
 
 			front_buffer_reference_state& operator=(front_buffer_reference_state&& rhs) noexcept {
@@ -368,7 +371,8 @@ namespace mpd {
 			T* data() noexcept { assume(is_aligned_array(buffer, max, alignment)); return buffer; }
 			const T* data() const noexcept { assume(is_aligned_array(buffer, max, alignment)); return buffer; }
 			size_t size() const noexcept { return *sz; }
-			size_t capacity() const noexcept { assume(is_aligned_array(buffer, max, alignment)); return max; }
+			size_t capacity() const noexcept { return max; }
+			size_t aligned_capacity() const noexcept { return calc_aligned(max); }
 			std::allocator<T> get_allocator() const { return {}; }
 		};
 
@@ -386,7 +390,9 @@ namespace mpd {
 			static const bool move_assign_should_assign = true;
 			static const bool dtor_should_destroy = false;
 			static const std::size_t alignment = alignment_;
-			static const std::size_t aligned_capacity_ = ((sizeof(T) * capacity_ + alignment_ - 1) / alignment_ * alignment_);
+			static const std::size_t aligned_capacity_ = ((sizeof(T) * capacity_ + alignment_ - 1) / alignment_ * alignment_ / sizeof(T));
+		public:
+			using bytebuffer_value_type = mpd::best_bytebuffer_type_t<T, aligned_capacity_, alignment>;
 		private:
 			size_type sz;
 			union data {
@@ -396,10 +402,7 @@ namespace mpd {
 				~data() {}
 			} d;
 			// ensure that overaligned bytes are zeroed out, so that algorithms can read/write aligned blocks deterministically.
-			void init_overaligned() noexcept {
-				if (std::is_trivially_copyable_v<T>)
-					std::memset(d.buffer + capacity_, 0, sizeof(T)*(aligned_capacity() - capacity_)); 
-			}
+			void init_overaligned() noexcept { std::memset(d.buffer + capacity_, 0, sizeof(T)*(aligned_capacity_ - capacity_)); }
 		protected:
 			void set_size(size_type s) noexcept {  assume(s <= capacity_); sz = s; }
 		public:
@@ -415,7 +418,7 @@ namespace mpd {
 			const T* data() const noexcept { assume(is_aligned_array(d.buffer, aligned_capacity_, alignment)); return d.buffer; }
 			size_type size() const noexcept { return sz; }
 			size_type capacity() const noexcept { return capacity_; }
-			size_type aligned_capacity() const noexcept { assume(is_aligned_array(d.buffer, aligned_capacity_, alignment)); return capacity_; }
+			size_type aligned_capacity() const noexcept { return std::is_trivial_v<T> ? aligned_capacity_ : capacity_; }
 			std::allocator<T> get_allocator() const { return {}; }
 		};
 
@@ -425,6 +428,8 @@ namespace mpd {
 			using value_type = T;
 			using size_type = std::size_t;
 			using allocator = typename Allocator::template rebind<T>::type;
+			using bytebuffer_value_type = mpd::best_bytebuffer_type_t<T, alignment_, alignment_>;
+		protected:
 			static const bool copy_ctor_should_assign = true;
 			static const bool move_ctor_should_assign = false;
 			static const bool copy_assign_should_assign = true;
@@ -436,14 +441,11 @@ namespace mpd {
 			size_type sz;
 			T* buffer;
 			// ensure that overaligned bytes are zeroed out, so that algorithms can read/write aligned blocks deterministically.
-			void init_overaligned() noexcept { 
-				if (std::is_trivially_copyable_v<T>)
-					std::memset(buffer + max, 0, sizeof(T)*(aligned_capacity()-capacity));
-			}
+			void init_overaligned() noexcept { std::memset(buffer + max, 0, sizeof(T)*(aligned_capacity()-capacity)); }
 		protected:
 			void set_size(size_type s) noexcept { sz = s; }
 			static size_type aligned_capacity(size_type capcity) {
-				return (sizeof(T) * capcity + alignment_ - 1) / alignment_ * alignment_;
+				return std::is_trivial_v<T> ? sizeof(T) * capcity + alignment_ - 1) / alignment_ * alignment_ / sizeof(T) : capacity;
 			}
 		public:
 			explicit front_buffer_heap_state(size_type capacity_)
@@ -475,7 +477,6 @@ namespace mpd {
 			size_type aligned_capacity() const noexcept { return aligned_capacity(max); }
 			std::allocator<T> get_allocator() const { return {}; }
 		};
-
 	}
 
 	// base class for buffers and buffer_references.
@@ -507,6 +508,7 @@ namespace mpd {
 		using reverse_iterator = std::reverse_iterator<T*>;
 		using const_reverse_iterator = std::reverse_iterator<const T*>;
 		using buffer_reference = basic_front_buffer<impl::front_buffer_reference_state<T, size_type, alignment>, overflow>;
+		using bytebuffer_iterator = mpd::bytebuffer_iterator_for<T, typename state::bytebuffer_value_type>;
 
 		basic_front_buffer() noexcept(noexcept(state())) { sets(0); }
 		explicit basic_front_buffer(state&& s) noexcept(noexcept(state(s))) : state(s) {}
@@ -643,6 +645,8 @@ namespace mpd {
 		reverse_iterator rend() noexcept { return reverse_iterator{d()}; }
 		const_reverse_iterator rend() const noexcept { return const_reverse_iterator{d()}; }
 		const_reverse_iterator crend() const noexcept { return const_reverse_iterator{d()}; }
+		bytebuffer_iterator bytebuffer_begin() const noexcept { return bytebuffer_iterator(d()); }
+		bytebuffer_iterator bytebuffer_end() const noexcept { return bytebuffer_iterator(d() + this->aligned_capacity()); }
 		bool empty() const noexcept { return s() == 0; }
 		using state::size;
 		using state::capacity;
@@ -765,10 +769,11 @@ namespace std {
 	class hash<mpd::basic_front_buffer<state, overflow>> {
 	public:
 		std::size_t operator()(const mpd::basic_front_buffer<state, overflow>& val) const noexcept {
-			std::hash<typename state::value_type> subhasher;
+			// instead of iterating over individual values, we actually iterate over the whole bytebuffer, which is faster for chars and shorts.
+			std::hash<typename mpd::basic_front_buffer<state, overflow>::bytebuffer_value_type> subhasher;
 			std::size_t ret = 0x9e3779b9;
-			for (int i = 0; i < val.size(); i++)
-				ret ^= subhasher(val[i]) + 0x9e3779b9 + (ret << 6) + (ret >> 2);
+			for (auto it = val.bytebuffer_begin(); it != val.bytebuffer_end(); it++)
+				ret ^= subhasher(*it) + 0x9e3779b9 + (ret << 6) + (ret >> 2);
 			return ret;
 		}
 	};

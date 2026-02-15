@@ -23,7 +23,8 @@ namespace mpd {
 			static const bool move_assign_should_assign = true;
 			static const bool dtor_should_destroy = false;
 			static const std::size_t alignment = alignment_;
-			static const std::size_t aligned_capacity_ = ((sizeof(char_t) * capacity_ + alignment_ - 1) / alignment_ * alignment_);
+			// the aligned_capacity has room for one extra trailing null/size.
+			static const std::size_t aligned_capacity_ = ((sizeof(char_t) * (capacity_ +1) + alignment_ - 1) / alignment_ * alignment_ / sizeof(char_t));
 		private:
 			alignas(alignment_) std::array<char_t, aligned_capacity_> buffer;
 			// ensure that overaligned bytes are zeroed out, so that algorithms can read/write aligned blocks deterministically.
@@ -39,7 +40,8 @@ namespace mpd {
 				buffer[capacity_] = static_cast<char_t>(capacity_ - s);
 			}
 		public:
-			string_buffer_array() noexcept { set_size(0); }
+			using bytebuffer_value_type = mpd::best_bytebuffer_type_t<char_t, aligned_capacity_, alignment_>;
+			string_buffer_array() noexcept { uninit_set_size(0); }
 			string_buffer_array(const string_buffer_array& rhs) noexcept { uninit_set_size(0); }
 			template<char_t capacity2, std::size_t align2>
 			string_buffer_array(const string_buffer_array<char_t, capacity2, align2>& rhs) noexcept { uninit_set_size(0); }
@@ -51,7 +53,7 @@ namespace mpd {
 			const char_t* data() const noexcept { assume(is_aligned_array(buffer.data(), aligned_capacity_, alignment)); return buffer.data(); }
 			size_type size() const noexcept { return capacity_ - buffer[capacity_]; }
 			size_type capacity() const noexcept { return capacity_; }
-			size_type aligned_capacity() const noexcept { assume(is_aligned_array(buffer.data(), aligned_capacity_, alignment)); }
+			size_type aligned_capacity() const noexcept { return aligned_capacity_; }
 			std::allocator<char_t> get_allocator() const { return {}; }
 		};
 	}
@@ -1114,10 +1116,7 @@ namespace std {
 	template<class state, mpd::overflow_behavior_t overflow>
 	struct hash<mpd::string_buffer<state, overflow>> {
 		std::size_t operator()(const mpd::string_buffer<state, overflow>& str) const {
-			std::size_t seed = 0x9e3779b9;
-			for (std::size_t i = 0; i < static_cast<std::size_t>(str.size()); i++)
-				seed ^= (static_cast<std::size_t>(str[i]) + 0x9e3779b9u + (seed << 6) + (seed >> 2));
-			return seed;
+			return std::hash<mpd::basic_front_buffer<state, overflow>>{}(str);
 		}
 	};
 	//TODO: std::hash
