@@ -11,14 +11,23 @@ compatability with C\++14, but may bump that to C\++17 at some point in the futu
 # Table of Contents
 - [Libraries](#Libraries)
   - [Algorithms](#Algorithms)
-    - [algorithm.h](#algorithm.hpp)
+    - [algorithm.hpp](#algorithm.hpp)
   - [Concurrency](#Concurrency)
+    - [atomic_spin.hpp](#atomic_spin.hpp)
   - [Containers](#Containers)
+    - [bitfield.hpp](#bitfield.hpp)
+    - [front_buffer.hpp](#front_buffer.hpp)
   - [DateTime](#DateTime)
   - [Diagnostics](#Diagnostics)
   - [InputOutput](#InputOutput)
+    - [async_ifilebuf.h](#async_ifilebuf.h)
+    - [async_ofilebuf.h](#async_ofilebuf.h)
     - [istream_lit.hpp](#istream_lit.hpp)
   - [Iterators](#Iterators)
+    - [bytebuffer_iterator.hpp](#bytebuffer_iterator.hpp)
+    - [iterator.hpp](#iterator.hpp)
+    - [reference_iterator.hpp](#reference_iterator.hpp)
+    - [strlen_iterator.hpp](#strlen_iterator.hpp)
   - [Language](#Language)
   - [Localization](#Localization)
   - [Memory](#Memory)
@@ -177,6 +186,27 @@ TODO: logging helpers, especially around adding context during exception unwindi
 
 ## InputOutput
 
+### async_ifilebuf.h
+
+`std::streambuf` that reads from file async, ahead of time.
+```
+async_ifilebuf stream_buf(in_path.c_str(), std::ios_base::binary);
+std::istream stream(&stream_buf);
+MyClass myData;
+while (stream >> myData)
+     doStuff(myData);
+```
+
+### async_ofilebuf.h
+
+`std::streambuf` that writes to file async.
+```
+async_ofilebuf stream_buf(in_path.c_str(), std::ios_base::binary);
+std::ostream stream(&stream_buf);
+for (Foo& foo : myCollection)
+   stream << foo.calculateStuff() << '\n';
+```
+
 ### istream_lit.hpp
 
 This header provides  helper methods for streaming in literals.
@@ -187,6 +217,12 @@ TODO: add support for making literals optional?
 
 
 ## Iterators
+
+### bytebuffer_iterator.hpp
+
+Exposes byte buffers as if they were other trivial types instead.
+This is incredibly dangerous, but can be handy for things like string hashing, where processing 8+ bytes in parallel makes a performance difference.
+	
 
 ### iterator.hpp
 Helper methods for iterating up to a maximum count.
