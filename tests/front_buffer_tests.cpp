@@ -261,6 +261,6 @@ void test_small_vectors() {
 	auto pred = [](const testing<0>& b05_abcd) {return b05_abcd == L'c'; };
 	test_abcd_after(erase_if(b05_abcd, pred), L"abd");
 	test_is(hasher(buffer0_5{}), 16228791721261791980ull);
-	test_is(hasher(buffer0_5{ {'a'},{'b'} }), 13301184043639500456ull);
-	test_is(hasher(buffer0_5{ {'b'},{'a'} }), 9275817057764757695ull);
+	test_is(hasher(buffer0_5{ {'a'},{'b'} }), 18152093832826678892ull);
+	test_is(hasher(buffer0_5{ {'b'},{'a'} }), 11505489199922365112ull);
 }

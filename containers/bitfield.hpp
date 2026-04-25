@@ -22,7 +22,7 @@ namespace mpd {
 	template<class BaseT,
 		class FieldT,
 		unsigned bitcount,
-		unsigned offset,
+		int offset = -1, //-1 signifies dyanmic offset, passed into constructor
 		class Getter = mpd::impl::bitfield_getter<BaseT, FieldT>,
 		class Setter = mpd::impl::bitfield_setter<BaseT, FieldT>>
 		class bitfield_member;
@@ -58,6 +58,15 @@ namespace std {
 }
 
 namespace mpd {
+	namespace impl {
+		template<int value_>
+		struct bitfield_template_offset {
+			static const unsigned char value = value_;
+		};
+		struct bitfield_dynamic_offset {
+			const unsigned char value;
+		};
+	}
 // Make a bitfield class that has a private BaseT bitfield.
 // Then, for each bitfield member, make a method that returns a bitfield_member
 // for that.
@@ -74,29 +83,34 @@ namespace mpd {
 //    B_type B() {return {bits};}
 //    B_const B() const {return {bits};}
 // };
-//
-	template<class BaseT, class FieldT, unsigned bitcount, unsigned offset, class Getter, class Setter>
-	class bitfield_member : Getter, Setter {
+	template<class BaseT, class FieldT, unsigned bitcount, int raw_offset, class Getter, class Setter>
+	class bitfield_member
+		: private Getter, Setter,
+		std::conditional_t<(raw_offset >= 0), impl::bitfield_template_offset<raw_offset>, impl::bitfield_dynamic_offset> {
+		// -1 raw_offset signifies dyanmic offset, passed into constructor
+		using offsetT = std::conditional_t<(raw_offset >= 0), impl::bitfield_template_offset<raw_offset>, impl::bitfield_dynamic_offset>;
 		static_assert(std::numeric_limits<BaseT>::is_exact
 			&& std::numeric_limits<BaseT>::is_integer
 			&& !std::numeric_limits<BaseT>::is_signed,
 			"BaseT must be an unsigned integer type");
 		static_assert(bitcount > 0, "bitfield member must have a positive number of bits");
 		static_assert(bitcount <= sizeof(BaseT) * CHAR_BIT, "bitfield member cannot have more bits than BaseT");
-		static_assert(bitcount + offset <= sizeof(BaseT) * CHAR_BIT, "bitfield member extends past the size of BaseT");
+		static_assert(raw_offset < 0 || (bitcount + raw_offset <= sizeof(BaseT) * CHAR_BIT), "bitfield member extends past the size of BaseT");
 
 		static constexpr BaseT lomask = (static_cast<BaseT>(1ull) << bitcount) - 1ull;
 		static constexpr FieldT fieldMin = std::numeric_limits<FieldT>::min();
-		static constexpr FieldT fieldMax = std::numeric_limits<FieldT>::max();
+		static constexpr FieldT fieldMax = static_cast<FieldT>(lomask);
 		BaseT* bits;
 	public:
-		using as_const = bitfield_member<const BaseT, const FieldT, bitcount, offset, Getter, Setter>;
+		using as_const = bitfield_member<const BaseT, const FieldT, bitcount, raw_offset, Getter, Setter>;
 
-		constexpr explicit bitfield_member(BaseT& bits_) :bits(&bits_) {}
-		constexpr operator FieldT() const { return get(); }
+		constexpr explicit MPD_INLINE() bitfield_member(BaseT& bits_) :bits(&bits_) { static_assert(raw_offset >= 0, "Dynamic offset constructor cannot be used with static offset"); }
+		constexpr MPD_INLINE() bitfield_member(BaseT& bits_, unsigned offset_) : offsetT{static_cast<unsigned char>(offset_)}, bits(&bits_)
+		{ static_assert(raw_offset < 0, "Static offset constructor cannot be used with dynamic offset"); assert(bitcount + offset_ <= sizeof(BaseT) * CHAR_BIT); }
+		constexpr MPD_INLINE(operator FieldT)() const { return get(); }
 		constexpr MPD_INLINE(FieldT) get() const {
 			// Despite appearances, this whole method is branchless
-			BaseT raw_bits = (*bits >> offset) & lomask;
+			BaseT raw_bits = (*bits >> offsetT::value) & lomask;
 			BaseT sign_extended_bits;
 			if (std::numeric_limits<FieldT>::is_signed) {
 				// negative values need the sign-extension bits set
@@ -114,7 +128,7 @@ namespace mpd {
 			// note: negative values may have sign-extension bits more than bitcount,
 			// but these are not significant bits.
 			assume(value >= fieldMin && value <= fieldMax);
-			BaseT resetBits = *bits & ~(lomask << offset);
+			BaseT resetBits = *bits & ~(lomask << offsetT::value);
 			BaseT newBits = Setter::operator()(value);
 			// ensure that Setter result's significant bits fit in the target size
 			// here again, negative values may have sign-extension bits outside the valid range
@@ -123,9 +137,9 @@ namespace mpd {
 				assume((newBits | lomask) == lomask || ~(newBits | lomask) == 0u);
 				newBits &= lomask;
 			} else {
-				assume((newBits >> offset >> bitcount) == 0u);
+				assume((newBits >> offsetT::value >> bitcount) == 0u);
 			}
-			*bits = resetBits | (newBits << offset);
+			*bits = resetBits | (newBits << offsetT::value);
 		}
 		constexpr MPD_INLINE(bitfield_member&) operator=(FieldT value) { set(value); return *this; }
 		constexpr MPD_INLINE(bitfield_member&) operator++() { set(get()++); return *this; }
