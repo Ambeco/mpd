@@ -140,6 +140,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="front_buffer.hpp" />
+    <ClInclude Include="initializers.hpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="bitfield.hpp" />

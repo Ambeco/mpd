@@ -9,6 +9,7 @@ void test_small_vectors();
 void test_bitfields();
 void test_atomic_spin();
 void test_async_iofilebuf();
+void test_initializers();
 
 int main() {
 	std::cout << "Starting tests..." << std::endl;
@@ -21,6 +22,7 @@ int main() {
 	test_bitfields();
 	test_atomic_spin();
 	test_async_iofilebuf();
+	test_initializers();
 	std::cout << "Success\n";
 	return 0;
 }

@@ -24,6 +24,7 @@
     <ClCompile Include="bitfield_tests.cpp" />
     <ClCompile Include="erasable_tests.cpp" />
     <ClCompile Include="front_buffer_tests.cpp" />
+    <ClCompile Include="initializers_tests.cpp" />
     <ClCompile Include="istream_lit_tests.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="pimpl_tests.cpp" />

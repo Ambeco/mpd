@@ -17,6 +17,7 @@ compatability with C\++14, but may bump that to C\++17 at some point in the futu
   - [Containers](#Containers)
     - [bitfield.hpp](#bitfieldhpp)
     - [front_buffer.hpp](#front_bufferhpp)
+    - [initializers.hpp](#initializershpp)
   - [DateTime](#DateTime)
   - [Diagnostics](#Diagnostics)
   - [InputOutput](#InputOutput)
@@ -175,6 +176,16 @@ lightweight than `std::vector`, but honestly, the only reason I can think of to 
 	`std::size_t front_buffer_emplace(T* buffer, std::size_t size, std::size_t capacity, const std::size_t pos, Args&&...args)`
 - `template <overflow_behavior_t overflow, class T, class SourceIterator>`
 	`std::size_t front_buffer_replace(T* buffer, std::size_t size, std::size_t capacity, std::size_t pos, std::size_t replace_count, SourceIterator source_begin, SourceIterator source_end)`
+	
+### initializers.hpp
+
+Helper methods for initializing containers
+
+ - `struct reserved`  
+	Makes it easy to initialize a container with a reserved size, without having to call `reserve` separately.
+	```
+	std::queue<char,  std::vector<char>> queue(mpd::reserved(100));
+	```
 
 ## DateTime
 
@@ -379,12 +390,3 @@ public:
     int get() const;
 };
 ```
-
-
-
-	
-	
-	
-	
-	
-	
