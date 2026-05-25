@@ -10,6 +10,7 @@ void test_bitfields();
 void test_atomic_spin();
 void test_async_iofilebuf();
 void test_initializers();
+void test_noop_stream();
 
 int main() {
 	std::cout << "Starting tests..." << std::endl;
@@ -23,6 +24,7 @@ int main() {
 	test_atomic_spin();
 	test_async_iofilebuf();
 	test_initializers();
+	test_noop_stream();
 	std::cout << "Success\n";
 	return 0;
 }

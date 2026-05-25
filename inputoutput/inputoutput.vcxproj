@@ -139,9 +139,10 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="async_ifilebuf.h" />
-    <ClInclude Include="async_ofilebuf.h" />
+    <ClInclude Include="async_ifilebuf.hpp" />
+    <ClInclude Include="async_ofilebuf.hpp" />
     <ClInclude Include="istream_lit.hpp" />
+    <ClInclude Include="noop_stream.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

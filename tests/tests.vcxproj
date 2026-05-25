@@ -27,6 +27,7 @@
     <ClCompile Include="initializers_tests.cpp" />
     <ClCompile Include="istream_lit_tests.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="noop_stream_tests.cpp" />
     <ClCompile Include="pimpl_tests.cpp" />
     <ClCompile Include="string_tests.cpp" />
     <ClCompile Include="vector_tests.cpp" />

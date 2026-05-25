@@ -18,10 +18,13 @@
     <ClInclude Include="istream_lit.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="async_ifilebuf.h">
+    <ClInclude Include="noop_stream.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="async_ofilebuf.h">
+    <ClInclude Include="async_ifilebuf.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="async_ofilebuf.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
