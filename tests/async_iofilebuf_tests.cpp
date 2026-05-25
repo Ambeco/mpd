@@ -2,8 +2,8 @@
 #include <cassert>
 #include <fstream>
 #include <iostream>
-#include "inputoutput/async_ifilebuf.h"
-#include "inputoutput/async_ofilebuf.h"
+#include "inputoutput/async_ifilebuf.hpp"
+#include "inputoutput/async_ofilebuf.hpp"
 
 void assert_file_len(const char* filename, unsigned long expected_len) {
 	std::ifstream outputFile(filename, std::ios_base::in | std::ios_base::binary);

@@ -21,8 +21,8 @@ compatability with C\++14, but may bump that to C\++17 at some point in the futu
   - [DateTime](#DateTime)
   - [Diagnostics](#Diagnostics)
   - [InputOutput](#InputOutput)
-    - [async_ifilebuf.h](#async_ifilebufh)
-    - [async_ofilebuf.h](#async_ofilebufh)
+    - [async_ifilebuf.hpp](#async_ifilebufhpp)
+    - [async_ofilebuf.hpp](#async_ofilebufhpp)
     - [istream_lit.hpp](#istream_lithpp)
   - [Iterators](#Iterators)
     - [bytebuffer_iterator.hpp](#bytebuffer_iteratorhpp)
@@ -197,7 +197,7 @@ TODO: logging helpers, especially around adding context during exception unwindi
 
 ## InputOutput
 
-### async_ifilebuf.h
+### async_ifilebuf.hpp
 
 `std::streambuf` that reads from file async, ahead of time.
 ```
@@ -208,7 +208,7 @@ while (stream >> myData)
      doStuff(myData);
 ```
 
-### async_ofilebuf.h
+### async_ofilebuf.hpp
 
 `std::streambuf` that writes to file async.
 ```
