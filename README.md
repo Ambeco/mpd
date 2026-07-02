@@ -324,7 +324,8 @@ A `std::basic_string<T, local_allocator>`.
 TODO: I'm sure I have code that goes here, but don't yet remember what
 
 ## numerics
-TODO: bignum
+TODO: bignum?  
+TODO: FixedPoint
 
 ## ranges
 No immediate plans
