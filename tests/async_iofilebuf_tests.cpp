@@ -65,4 +65,61 @@ void test_async_iofilebuf() {
 	assert_file_contents("outputFile2.txt", 0, 50, 'A');
 	assert_file_contents("outputFile2.txt", 50, 50, "  40\n  41\n  42\n  43\n  44\n  45\n  46\n  47\n  48\n  49\n");
 	assert_file_contents("outputFile2.txt", 100, 50, 'A');
+
+	{ // async_ibuf<buf_type>/async_obuf<buf_type> can delegate to an already-open buf_type moved in directly,
+	  // instead of opening a file by name themselves.
+		std::filebuf in_fb;
+		in_fb.open("inputfile.txt", std::ios_base::in | std::ios_base::binary);
+		mpd::async_ibuf<std::filebuf> ibuf(std::move(in_fb));
+		std::istream inputFile(&ibuf);
+
+		std::filebuf out_fb;
+		out_fb.open("outputFile3.txt", std::ios_base::out | std::ios_base::binary | std::ios_base::trunc);
+		mpd::async_obuf<std::filebuf> obuf(std::move(out_fb));
+		std::ostream outputFile(&obuf);
+
+		unsigned i = 0;
+		while (inputFile >> i) {
+			outputFile << std::setw(4) << i;
+			outputFile.put('\n');
+		}
+	}
+	assert_file_len("outputFile3.txt", 25000);
+
+	{ // Moving an async_ifilebuf immediately after construction (before its initial background read completes)
+	  // must not race: the moved-from object's in-flight worker must be joined before the move touches its members.
+		mpd::async_ifilebuf ibuf_src("inputfile.txt", std::ios_base::in | std::ios_base::binary);
+		mpd::async_ifilebuf ibuf(std::move(ibuf_src));
+		std::istream inputFile(&ibuf);
+		unsigned i = 0;
+		unsigned count = 0;
+		while (inputFile >> i) {
+			assert(i == count);
+			count++;
+		}
+		assert(count == 5000);
+	}
+
+	{ // Moving an async_ofilebuf mid-write must flush the moved-from object's pending writes first.
+		mpd::async_ofilebuf obuf_src("outputFile4.txt", std::ios_base::out | std::ios_base::binary | std::ios_base::trunc);
+		std::ostream outputFile(&obuf_src);
+		outputFile << std::setw(4) << 7;
+		mpd::async_ofilebuf obuf(std::move(obuf_src));
+		std::ostream outputFile2(&obuf);
+		outputFile2.put('\n');
+	}
+	assert_file_contents("outputFile4.txt", 0, 5, "   7\n");
+
+	{ // The wchar_t* overloads work the same as the char* ones.
+		mpd::async_ifilebuf ibuf(L"inputfile.txt", std::ios_base::in | std::ios_base::binary);
+		std::istream inputFile(&ibuf);
+		mpd::async_ofilebuf obuf(L"outputFile5.txt", std::ios_base::out | std::ios_base::binary | std::ios_base::trunc);
+		std::ostream outputFile(&obuf);
+		unsigned i = 0;
+		while (inputFile >> i) {
+			outputFile << std::setw(4) << i;
+			outputFile.put('\n');
+		}
+	}
+	assert_file_len("outputFile5.txt", 25000);
 }

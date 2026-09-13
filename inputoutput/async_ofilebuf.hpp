@@ -7,29 +7,34 @@
 #include <future>
 #include <iomanip>
 #include <streambuf>
+#include <utility>
 #include <vector>
 
 namespace mpd {
-// std::streambuf that pre-reads up to 4kb in a background thread for istream, so that the calling thread
-// is unlikely to stall. When reads are interlaced with cpu usage, this can greatly improve performance.
-// When reads are not interlaced with cpu usage, this will slightly hinder performance.
+// std::streambuf that buffers up to 4kb and writes it out in a background thread for ostream, so that the
+// calling thread is unlikely to stall. When writes are interlaced with cpu usage, this can greatly improve
+// performance. When writes are not interlaced with cpu usage, this will slightly hinder performance.
+// buf_type is the streambuf delegated to for the actual writes/seeks. Either move in an already-open one to
+// delegate to it, or pass buf_type::open()'s own arguments (e.g. a filename) to have it opened for you --
+// either way, buf_type must have open()/close() (e.g. std::filebuf; see async_ofilebuf below). close()
+// closes it too.
 // ex:
-// MyClass myData;
-// async_ofilebuf stream_buf(in_path.c_str(), std::ios_base::binary);
+// async_obuf<std::filebuf> stream_buf(std::move(myFilebuf));
 // std::ostream stream(&stream_buf);
 // for (foo : myData) {
 //   stream << myData.calculateStuff() << '\n';
 // }
-	struct async_ofilebuf : virtual std::streambuf {
+	template <class buf_type>
+	struct async_obuf : virtual std::streambuf {
 		const std::size_t buffer_dump_size = 4096;
 
-		std::ofstream out; // TODO :replace with std::filebuf
+		buf_type out;
 		std::vector<char> filling_buffer;
 		std::vector<char> dumping_buffer;
 		std::future<void> dump_future;
 
 		void worker() {
-			out.write(dumping_buffer.data(), dumping_buffer.size());
+			out.sputn(dumping_buffer.data(), std::streamsize(dumping_buffer.size()));
 			dumping_buffer.clear();
 		}
 
@@ -39,36 +44,47 @@ namespace mpd {
 			filling_buffer.resize(filling_count);
 			if (dump_future.valid()) dump_future.get();
 			filling_buffer.swap(dumping_buffer);
-			if (!dumping_buffer.empty()) 
+			if (!dumping_buffer.empty())
 				dump_future = std::async(std::launch::async, [this]() {worker(); });
 			filling_buffer.resize(buffer_dump_size);
 			setp(filling_buffer.data(), filling_buffer.data() + filling_buffer.size() - 1);
 		}
+		void start() {
+			filling_buffer.resize(buffer_dump_size);
+			setp(filling_buffer.data(), filling_buffer.data() + filling_buffer.size() - 1);
+		}
 	public:
-		async_ofilebuf(const char* name, std::ios_base::openmode mode = std::ios_base::out)
-			: filling_buffer(buffer_dump_size) {
-			setp(filling_buffer.data(), filling_buffer.data() + filling_buffer.size() - 1);
-			dump_future = std::async(std::launch::async, [this, name, mode]() {out.open(name, mode); });
+		async_obuf() {
+			start();
 		}
-		async_ofilebuf(const wchar_t* name, std::ios_base::openmode mode = std::ios_base::out)
-			: filling_buffer(buffer_dump_size) {
-			setp(filling_buffer.data(), filling_buffer.data() + filling_buffer.size() - 1);
-			dump_future = std::async(std::launch::async, [this, name, mode]() {out.open(name, mode); });
+		explicit async_obuf(buf_type&& already_open) : out(std::move(already_open)) {
+			start();
 		}
-		async_ofilebuf(async_ofilebuf&& rhs) noexcept {
+		template <class First, class... Rest>
+		explicit async_obuf(First&& first, Rest&&... rest) {
+			start();
+			dump_future = std::async(std::launch::async, [this, first, rest...]() { out.open(first, rest...); });
+		}
+		async_obuf(async_obuf&& rhs) noexcept {
 			rhs.sync();
-			operator=(std::move(rhs));
+			out = std::move(rhs.out);
+			filling_buffer = std::move(rhs.filling_buffer);
+			dumping_buffer = std::move(rhs.dumping_buffer);
+			dump_future = std::move(rhs.dump_future);
+			setp(filling_buffer.data(), filling_buffer.data() + filling_buffer.size() - 1);
 		}
-		~async_ofilebuf() noexcept {
+		~async_obuf() noexcept {
 			close();
 		}
-		async_ofilebuf& operator=(async_ofilebuf&& rhs) noexcept {
+		async_obuf& operator=(async_obuf&& rhs) noexcept {
+			if (this == &rhs) return *this;
 			close();
 			rhs.sync();
 			out = std::move(rhs.out);
 			filling_buffer = std::move(rhs.filling_buffer);
 			dumping_buffer = std::move(rhs.dumping_buffer);
 			dump_future = std::move(rhs.dump_future);
+			setp(filling_buffer.data(), filling_buffer.data() + filling_buffer.size() - 1);
 			return *this;
 		}
 		void close() {
@@ -89,20 +105,18 @@ namespace mpd {
 		int sync() override {
 			dump();
 			if (dump_future.valid()) dump_future.get();
-			out.flush();
+			out.pubsync();
 			return 0;
 		}
 		pos_type seekoff(off_type off, std::ios_base::seekdir dir, std::ios_base::openmode = std::ios_base::out) override {
-			dump(); // initiate dump of any pending writes
-			dump_future = std::async(std::launch::async, [this, off, dir, old_dump_future=std::move(dump_future)]() mutable {
-				if (old_dump_future.valid()) old_dump_future.get(); // once that's done, THEN seek, but we don't have to block calling thread for that
-				out.seekp(off, dir); 
-			});
-			setp(dumping_buffer.data(), dumping_buffer.data(), dumping_buffer.data());
-			return out.tellp();
+			dump(); // flushes any pending writes and resets the put area to a fresh filling_buffer
+			if (dump_future.valid()) dump_future.get(); // must finish before we seek, since it's writing through `out` too
+			return out.pubseekoff(off, dir, std::ios_base::out);
 		}
 		pos_type seekpos(pos_type pos, std::ios_base::openmode which = std::ios_base::out) override {
 			return seekoff(pos, std::ios_base::beg, which);
 		}
 	};
+
+	using async_ofilebuf = async_obuf<std::filebuf>;
 }
